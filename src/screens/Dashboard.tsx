@@ -1,6 +1,8 @@
 import Slider from '@react-native-community/slider';
-import React, { useCallback, useMemo, useState } from 'react';
+import * as Haptics from 'expo-haptics';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -9,8 +11,9 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ColorPalette } from '../constants/theme';
+import { ColorPalette, MONO_FONT } from '../constants/theme';
 import { ConnectionBar } from '../components/ConnectionBar';
+import { VisualizerCurve } from '../components/VisualizerCurve';
 import { useBle } from '../context/BleContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDebouncedCallback } from '../hooks/useDebounce';
@@ -23,7 +26,18 @@ const Q_MAX = 20.0;
 const Q_DEFAULT = 10.0;
 
 function formatFrequency(hz: number): string {
-  return hz >= 1000 ? `${(hz / 1000).toFixed(2)} kHz` : `${Math.round(hz)} Hz`;
+  if (hz >= 1000) {
+    // Always render as X.XX kHz so the string length is constant → no layout jitter
+    return `${(hz / 1000).toFixed(2)} kHz`;
+  }
+  return `${String(Math.round(hz)).padStart(4, ' ')} Hz`; // figure-space pad
+}
+
+// Haptics silently no-op on web / simulator
+function haptic(style: Haptics.ImpactFeedbackStyle) {
+  if (Platform.OS !== 'web') {
+    Haptics.impactAsync(style).catch(() => {});
+  }
 }
 
 export function Dashboard() {
@@ -37,6 +51,9 @@ export function Dashboard() {
   const [q, setQ] = useState(Q_DEFAULT);
   const [bypass, setBypass] = useState(false);
 
+  // Track last 100 Hz bucket to fire a haptic tick on each boundary crossing
+  const lastBucketRef = useRef(Math.floor(F0_DEFAULT / 100));
+
   const debouncedSendFilter = useDebouncedCallback(
     (nextF0: number, nextQ: number) => {
       sendPayload({ type: 'FILTER_UPDATE', f0: Math.round(nextF0), Q: nextQ });
@@ -47,6 +64,14 @@ export function Dashboard() {
   const handleF0Change = useCallback(
     (value: number) => {
       setF0(value);
+
+      // Fire a light haptic tick every 100 Hz boundary
+      const bucket = Math.floor(value / 100);
+      if (bucket !== lastBucketRef.current) {
+        lastBucketRef.current = bucket;
+        haptic(Haptics.ImpactFeedbackStyle.Light);
+      }
+
       if (isConnected && !bypass) debouncedSendFilter(value, q);
     },
     [isConnected, bypass, q, debouncedSendFilter],
@@ -64,6 +89,7 @@ export function Dashboard() {
   const handleBypassToggle = useCallback(
     (value: boolean) => {
       setBypass(value);
+      haptic(Haptics.ImpactFeedbackStyle.Medium);
       if (!isConnected) return;
       if (value) {
         sendPayload({ type: 'BYPASS', enabled: true });
@@ -91,7 +117,6 @@ export function Dashboard() {
             <Text style={styles.appTitleAccent}>SHIELD</Text>
             <Text style={styles.appSubtitle}>Medical DSP Remote Control</Text>
           </View>
-
           <TouchableOpacity
             style={styles.themeToggle}
             onPress={toggleTheme}
@@ -103,6 +128,9 @@ export function Dashboard() {
 
         {/* ── Connection Status ───────────────────────── */}
         <ConnectionBar />
+
+        {/* ── EQ Visualizer ───────────────────────────── */}
+        <VisualizerCurve f0={f0} q={q} bypass={bypass} />
 
         {/* ── Frequency Sweeper ───────────────────────── */}
         <View style={[styles.card, controlsDisabled && !bypass && styles.cardDisabled]}>
@@ -304,12 +332,13 @@ function makeStyles(c: ColorPalette) {
       opacity: 0.6,
     },
 
-    // ── Frequency
+    // ── Frequency — monospaced so digits don't shift the layout
     freqValue: {
       fontSize: 52,
       fontWeight: '800',
+      fontFamily: MONO_FONT,
       color: c.textPrimary,
-      letterSpacing: -1,
+      letterSpacing: 0,
       textAlign: 'center',
       marginBottom: 8,
     },
@@ -340,7 +369,7 @@ function makeStyles(c: ColorPalette) {
       letterSpacing: 0.5,
     },
 
-    // ── Q Factor
+    // ── Q Factor — monospaced so Q = X.X doesn't shift
     qValueRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -350,8 +379,9 @@ function makeStyles(c: ColorPalette) {
     qValue: {
       fontSize: 36,
       fontWeight: '700',
+      fontFamily: MONO_FONT,
       color: c.textPrimary,
-      letterSpacing: -0.5,
+      letterSpacing: 0,
     },
     qDescBadge: {
       backgroundColor: c.qBadgeBg,
@@ -406,8 +436,8 @@ function makeStyles(c: ColorPalette) {
     },
     payloadText: {
       fontSize: 13,
+      fontFamily: MONO_FONT,
       color: c.payloadText,
-      fontFamily: 'monospace',
       letterSpacing: 0.3,
     },
   });
