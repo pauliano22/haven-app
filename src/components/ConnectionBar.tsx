@@ -1,19 +1,30 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useBle } from '../context/BleContext';
+import { useTheme } from '../context/ThemeContext';
+import { ColorPalette } from '../constants/theme';
 import { ConnectionStatus } from '../types';
 
-const STATUS_CONFIG: Record<ConnectionStatus, { label: string; color: string }> = {
-  idle:         { label: 'Disconnected',  color: '#6B7FA3' },
-  scanning:     { label: 'Scanning...',   color: '#FFB347' },
-  connecting:   { label: 'Connecting...', color: '#FFB347' },
-  connected:    { label: 'Connected',     color: '#00E5CC' },
-  disconnected: { label: 'Disconnected',  color: '#FF4D6D' },
-};
+function statusConfig(
+  status: ConnectionStatus,
+  c: ColorPalette,
+): { label: string; color: string } {
+  return {
+    idle:         { label: 'Disconnected',  color: c.statusIdle },
+    scanning:     { label: 'Scanning...',   color: c.statusScanning },
+    connecting:   { label: 'Connecting...', color: c.statusScanning },
+    connected:    { label: 'Connected',     color: c.statusConnected },
+    disconnected: { label: 'Disconnected',  color: c.statusDisconnected },
+  }[status];
+}
 
 export function ConnectionBar() {
   const { status, connect, disconnect } = useBle();
-  const { label, color } = STATUS_CONFIG[status];
+  const { theme } = useTheme();
+  const c = theme.colors;
+
+  const styles = useMemo(() => makeStyles(c), [c]);
+  const { label, color } = statusConfig(status, c);
   const isScanning = status === 'scanning' || status === 'connecting';
   const isConnected = status === 'connected';
 
@@ -34,7 +45,7 @@ export function ConnectionBar() {
         disabled={isScanning}
         activeOpacity={0.75}
       >
-        <Text style={styles.buttonText}>
+        <Text style={[styles.buttonText, isConnected && styles.buttonTextDisconnect]}>
           {isConnected ? 'Disconnect' : isScanning ? 'Scanning...' : 'Connect'}
         </Text>
       </TouchableOpacity>
@@ -42,51 +53,56 @@ export function ConnectionBar() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#0D1628',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#1A2744',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    marginBottom: 20,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  statusLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
-  button: {
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    borderRadius: 8,
-  },
-  buttonConnect: {
-    backgroundColor: '#00E5CC',
-  },
-  buttonDisconnect: {
-    backgroundColor: '#1A2744',
-    borderWidth: 1,
-    borderColor: '#FF4D6D',
-  },
-  buttonText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#060B14',
-    letterSpacing: 0.5,
-  },
-});
+function makeStyles(c: ColorPalette) {
+  return StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: c.cardBg,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: c.border,
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      marginBottom: 20,
+    },
+    statusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    dot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
+    statusLabel: {
+      fontSize: 15,
+      fontWeight: '600',
+      letterSpacing: 0.5,
+    },
+    button: {
+      paddingHorizontal: 18,
+      paddingVertical: 9,
+      borderRadius: 8,
+    },
+    buttonConnect: {
+      backgroundColor: c.btnConnectBg,
+    },
+    buttonDisconnect: {
+      backgroundColor: c.btnDisconnectBg,
+      borderWidth: 1,
+      borderColor: c.btnDisconnectBorder,
+    },
+    buttonText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: c.btnConnectText,
+      letterSpacing: 0.5,
+    },
+    buttonTextDisconnect: {
+      color: c.btnDisconnectBorder,
+    },
+  });
+}

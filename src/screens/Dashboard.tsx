@@ -1,15 +1,18 @@
 import Slider from '@react-native-community/slider';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
+import { ColorPalette } from '../constants/theme';
 import { ConnectionBar } from '../components/ConnectionBar';
 import { useBle } from '../context/BleContext';
+import { useTheme } from '../context/ThemeContext';
 import { useDebouncedCallback } from '../hooks/useDebounce';
 
 const F0_MIN = 200;
@@ -25,13 +28,15 @@ function formatFrequency(hz: number): string {
 
 export function Dashboard() {
   const { status, sendPayload } = useBle();
-  const isConnected = status === 'connected';
+  const { theme, toggleTheme } = useTheme();
+  const c = theme.colors;
+  const styles = useMemo(() => makeStyles(c), [c]);
 
+  const isConnected = status === 'connected';
   const [f0, setF0] = useState(F0_DEFAULT);
   const [q, setQ] = useState(Q_DEFAULT);
   const [bypass, setBypass] = useState(false);
 
-  // Debounced BLE writers — 100 ms per spec
   const debouncedSendFilter = useDebouncedCallback(
     (nextF0: number, nextQ: number) => {
       sendPayload({ type: 'FILTER_UPDATE', f0: Math.round(nextF0), Q: nextQ });
@@ -70,6 +75,8 @@ export function Dashboard() {
   );
 
   const controlsDisabled = !isConnected || bypass;
+  const sliderTrack = bypass ? c.sliderDisabled : c.accent;
+  const sliderThumbQ = bypass ? c.sliderDisabled : c.accentSecondary;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -78,10 +85,20 @@ export function Dashboard() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Header ─────────────────────────────────── */}
-        <View style={styles.header}>
-          <Text style={styles.appTitle}>ACOUSTIC</Text>
-          <Text style={styles.appTitleAccent}>SHIELD</Text>
-          <Text style={styles.appSubtitle}>Medical DSP Remote Control</Text>
+        <View style={styles.headerWrap}>
+          <View style={styles.headerTitleBlock}>
+            <Text style={styles.appTitle}>ACOUSTIC</Text>
+            <Text style={styles.appTitleAccent}>SHIELD</Text>
+            <Text style={styles.appSubtitle}>Medical DSP Remote Control</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.themeToggle}
+            onPress={toggleTheme}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.themeToggleIcon}>{theme.dark ? '☀️' : '🌙'}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── Connection Status ───────────────────────── */}
@@ -103,9 +120,9 @@ export function Dashboard() {
             value={f0}
             step={1}
             onValueChange={handleF0Change}
-            minimumTrackTintColor={bypass ? '#1A2744' : '#00E5CC'}
-            maximumTrackTintColor="#1A2744"
-            thumbTintColor={bypass ? '#1A2744' : '#00E5CC'}
+            minimumTrackTintColor={sliderTrack}
+            maximumTrackTintColor={c.sliderMax}
+            thumbTintColor={sliderTrack}
             disabled={bypass || !isConnected}
           />
 
@@ -146,9 +163,9 @@ export function Dashboard() {
             value={q}
             step={0.1}
             onValueChange={handleQChange}
-            minimumTrackTintColor={bypass ? '#1A2744' : '#00E5CC'}
-            maximumTrackTintColor="#1A2744"
-            thumbTintColor={bypass ? '#1A2744' : '#00BFFF'}
+            minimumTrackTintColor={sliderTrack}
+            maximumTrackTintColor={c.sliderMax}
+            thumbTintColor={sliderThumbQ}
             disabled={bypass || !isConnected}
           />
 
@@ -168,15 +185,15 @@ export function Dashboard() {
               </Text>
             </View>
             <View style={styles.bypassRight}>
-              <Text style={[styles.bypassStatus, bypass ? styles.bypassOff : styles.bypassOn]}>
+              <Text style={[styles.bypassStatus, { color: bypass ? c.bypassOff : c.bypassOn }]}>
                 {bypass ? 'BYPASSED' : 'ACTIVE'}
               </Text>
               <Switch
                 value={bypass}
                 onValueChange={handleBypassToggle}
-                trackColor={{ false: '#00E5CC', true: '#FF4D6D' }}
+                trackColor={{ false: c.bypassOn, true: c.bypassOff }}
                 thumbColor="#FFFFFF"
-                ios_backgroundColor="#00E5CC"
+                ios_backgroundColor={c.bypassOn}
                 disabled={!isConnected}
               />
             </View>
@@ -197,190 +214,201 @@ export function Dashboard() {
   );
 }
 
-const CYAN = '#00E5CC';
-const BG = '#060B14';
-const CARD_BG = '#0D1628';
-const BORDER = '#1A2744';
-const TEXT_PRIMARY = '#FFFFFF';
-const TEXT_SECONDARY = '#6B7FA3';
+function makeStyles(c: ColorPalette) {
+  return StyleSheet.create({
+    safe: {
+      flex: 1,
+      backgroundColor: c.bg,
+    },
+    scroll: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 40,
+    },
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: BG,
-  },
-  scroll: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
-  },
+    // ── Header
+    headerWrap: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'center',
+      marginBottom: 28,
+      position: 'relative',
+    },
+    headerTitleBlock: {
+      alignItems: 'center',
+    },
+    appTitle: {
+      fontSize: 32,
+      fontWeight: '900',
+      color: c.textPrimary,
+      letterSpacing: 8,
+    },
+    appTitleAccent: {
+      fontSize: 32,
+      fontWeight: '900',
+      color: c.accent,
+      letterSpacing: 8,
+      marginTop: -6,
+    },
+    appSubtitle: {
+      fontSize: 11,
+      color: c.textSecondary,
+      letterSpacing: 3,
+      marginTop: 6,
+      textTransform: 'uppercase',
+    },
+    themeToggle: {
+      position: 'absolute',
+      right: 0,
+      top: 4,
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: c.toggleBg,
+      borderWidth: 1,
+      borderColor: c.toggleBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    themeToggleIcon: {
+      fontSize: 18,
+    },
 
-  // ── Header
-  header: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  appTitle: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: TEXT_PRIMARY,
-    letterSpacing: 8,
-  },
-  appTitleAccent: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: CYAN,
-    letterSpacing: 8,
-    marginTop: -6,
-  },
-  appSubtitle: {
-    fontSize: 11,
-    color: TEXT_SECONDARY,
-    letterSpacing: 3,
-    marginTop: 6,
-    textTransform: 'uppercase',
-  },
+    // ── Cards
+    card: {
+      backgroundColor: c.cardBg,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: c.border,
+      padding: 20,
+      marginBottom: 16,
+    },
+    cardDisabled: {
+      opacity: 0.45,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'baseline',
+      marginBottom: 14,
+    },
+    cardLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: c.textSecondary,
+      letterSpacing: 2,
+    },
+    cardHint: {
+      fontSize: 11,
+      color: c.textSecondary,
+      opacity: 0.6,
+    },
 
-  // ── Cards
-  card: {
-    backgroundColor: CARD_BG,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: BORDER,
-    padding: 20,
-    marginBottom: 16,
-  },
-  cardDisabled: {
-    opacity: 0.45,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginBottom: 14,
-  },
-  cardLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: TEXT_SECONDARY,
-    letterSpacing: 2,
-  },
-  cardHint: {
-    fontSize: 11,
-    color: TEXT_SECONDARY,
-    opacity: 0.6,
-  },
+    // ── Frequency
+    freqValue: {
+      fontSize: 52,
+      fontWeight: '800',
+      color: c.textPrimary,
+      letterSpacing: -1,
+      textAlign: 'center',
+      marginBottom: 8,
+    },
+    mainSlider: {
+      width: '100%',
+      height: 48,
+    },
+    rangeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 2,
+    },
+    rangeLabel: {
+      fontSize: 11,
+      color: c.textSecondary,
+      letterSpacing: 0.5,
+    },
+    freqBadgeRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 14,
+      paddingHorizontal: 4,
+    },
+    freqBadge: {
+      fontSize: 10,
+      color: c.textSecondary,
+      opacity: 0.5,
+      letterSpacing: 0.5,
+    },
 
-  // ── Frequency
-  freqValue: {
-    fontSize: 52,
-    fontWeight: '800',
-    color: TEXT_PRIMARY,
-    letterSpacing: -1,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  mainSlider: {
-    width: '100%',
-    height: 48,
-  },
-  rangeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 2,
-  },
-  rangeLabel: {
-    fontSize: 11,
-    color: TEXT_SECONDARY,
-    letterSpacing: 0.5,
-  },
-  freqBadgeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 14,
-    paddingHorizontal: 4,
-  },
-  freqBadge: {
-    fontSize: 10,
-    color: TEXT_SECONDARY,
-    opacity: 0.5,
-    letterSpacing: 0.5,
-  },
+    // ── Q Factor
+    qValueRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    qValue: {
+      fontSize: 36,
+      fontWeight: '700',
+      color: c.textPrimary,
+      letterSpacing: -0.5,
+    },
+    qDescBadge: {
+      backgroundColor: c.qBadgeBg,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: c.border,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    qDescText: {
+      fontSize: 12,
+      color: c.accent,
+      fontWeight: '600',
+      letterSpacing: 1,
+    },
+    secondarySlider: {
+      width: '100%',
+      height: 40,
+    },
 
-  // ── Q Factor
-  qValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  qValue: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: TEXT_PRIMARY,
-    letterSpacing: -0.5,
-  },
-  qDescBadge: {
-    backgroundColor: '#0A1E38',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: BORDER,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  qDescText: {
-    fontSize: 12,
-    color: CYAN,
-    fontWeight: '600',
-    letterSpacing: 1,
-  },
-  secondarySlider: {
-    width: '100%',
-    height: 40,
-  },
+    // ── Bypass
+    bypassRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    bypassRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    bypassStatus: {
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 1.5,
+    },
 
-  // ── Bypass
-  bypassRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  bypassRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  bypassStatus: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.5,
-  },
-  bypassOn: {
-    color: CYAN,
-  },
-  bypassOff: {
-    color: '#FF4D6D',
-  },
-
-  // ── Payload preview
-  payloadCard: {
-    backgroundColor: '#080E1C',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#10192E',
-    padding: 16,
-    marginTop: 4,
-  },
-  payloadLabel: {
-    fontSize: 9,
-    color: TEXT_SECONDARY,
-    letterSpacing: 2,
-    marginBottom: 8,
-  },
-  payloadText: {
-    fontSize: 13,
-    color: '#4EC9B0',
-    fontFamily: 'monospace',
-    letterSpacing: 0.3,
-  },
-});
+    // ── Payload preview
+    payloadCard: {
+      backgroundColor: c.cardBgDeep,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: c.borderDeep,
+      padding: 16,
+      marginTop: 4,
+    },
+    payloadLabel: {
+      fontSize: 9,
+      color: c.textSecondary,
+      letterSpacing: 2,
+      marginBottom: 8,
+    },
+    payloadText: {
+      fontSize: 13,
+      color: c.payloadText,
+      fontFamily: 'monospace',
+      letterSpacing: 0.3,
+    },
+  });
+}
