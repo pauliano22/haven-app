@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LDL_TEST_FREQUENCIES_HZ, MAX_TONE_LEVEL_DB } from '../../constants/safety';
-import { MONO_FONT, RADIUS, RADIUS_SM, SANS_FONT } from '../../constants/theme';
+import { RADIUS, RADIUS_SM, SANS_FONT, SERIF_FONT } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { SectionRule } from '../SectionRule';
 
@@ -34,7 +34,7 @@ export function LdlIntro({ connected, onStart }: Props) {
 
       <View style={[styles.safetyBox, { borderColor: c.statusScanning }]}>
         <Text style={[styles.safetyTitle, { color: c.statusScanning }]}>
-          SAFETY LIMITS ACTIVE
+          Safety limits active
         </Text>
         <Text style={[styles.safetyText, { color: c.textSecondary }]}>
           Output is hard-capped at {MAX_TONE_LEVEL_DB} dB. A tone that reaches
@@ -59,7 +59,7 @@ export function LdlIntro({ connected, onStart }: Props) {
         activeOpacity={0.8}
       >
         <Text style={[styles.startBtnText, { color: c.btnConnectText }]}>
-          BEGIN TEST
+          Begin test
         </Text>
       </TouchableOpacity>
     </View>
@@ -73,11 +73,10 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   title: {
-    fontSize: 22,
-    fontFamily: MONO_FONT,
-    fontWeight: '700',
+    fontSize: 26,
+    fontFamily: SERIF_FONT,
     letterSpacing: 0,
-    lineHeight: 30,
+    lineHeight: 33,
     marginBottom: 14,
   },
   body: {
@@ -94,10 +93,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   safetyTitle: {
-    fontSize: 11,
-    fontFamily: MONO_FONT,
+    fontSize: 12,
+    fontFamily: SANS_FONT,
     fontWeight: '700',
-    letterSpacing: 2,
+    letterSpacing: 0.6,
     marginBottom: 6,
   },
   safetyText: {
@@ -117,9 +116,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   startBtnText: {
-    fontSize: 14,
-    fontFamily: MONO_FONT,
+    fontSize: 15,
+    fontFamily: SANS_FONT,
     fontWeight: '700',
-    letterSpacing: 2,
+    letterSpacing: 0.3,
   },
 });

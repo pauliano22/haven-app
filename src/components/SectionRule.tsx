@@ -1,20 +1,18 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { MONO_FONT } from '../constants/theme';
+import { SANS_FONT } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 
 interface Props {
   label: string;
-  /** Dim annotation at the right end of the rule. */
+  /** Dim annotation at the right edge. */
   hint?: string;
 }
 
 /**
- * Patch-bay rule label — the app's signature structural device. A mono
- * uppercase label engraved in a hairline rule, marking each card as a
- * labeled module in the rack:
- *
- *   ── TARGET FREQUENCY ────────────────── trigger
+ * Soft section caption — quiet label left, context right. Kept under its
+ * historical name so every card header restyles in one place; the
+ * terminal-era hairline rules are gone.
  */
 export function SectionRule({ label, hint }: Props) {
   const { theme } = useTheme();
@@ -22,9 +20,7 @@ export function SectionRule({ label, hint }: Props) {
 
   return (
     <View style={styles.row}>
-      <View style={[styles.rule, styles.ruleLead, { backgroundColor: c.border }]} />
       <Text style={[styles.label, { color: c.textSecondary }]}>{label}</Text>
-      <View style={[styles.rule, styles.ruleTail, { backgroundColor: c.border }]} />
       {hint != null && (
         <Text style={[styles.hint, { color: c.textSecondary }]}>{hint}</Text>
       )}
@@ -35,32 +31,21 @@ export function SectionRule({ label, hint }: Props) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  rule: {
-    height: StyleSheet.hairlineWidth,
-    opacity: 0.9,
-  },
-  ruleLead: {
-    width: 12,
-    marginRight: 8,
-  },
-  ruleTail: {
-    flex: 1,
-    marginLeft: 8,
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 14,
   },
   label: {
-    fontSize: 10,
-    fontFamily: MONO_FONT,
-    fontWeight: '700',
-    letterSpacing: 2,
+    fontSize: 12,
+    fontFamily: SANS_FONT,
+    fontWeight: '600',
+    letterSpacing: 1.1,
     textTransform: 'uppercase',
+    opacity: 0.9,
   },
   hint: {
-    fontSize: 10,
-    fontFamily: MONO_FONT,
-    marginLeft: 8,
+    fontSize: 12,
+    fontFamily: SANS_FONT,
     opacity: 0.65,
   },
 });

@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useReducedMotion } from '../../hooks/useReducedMotion';
-import { MONO_FONT, RADIUS, RADIUS_SM, SANS_FONT } from '../../constants/theme';
+import { RADIUS, RADIUS_SM, SANS_FONT, SERIF_FONT } from '../../constants/theme';
 import { LDL_START_LEVEL_DB, MAX_TONE_LEVEL_DB } from '../../constants/safety';
 import { useTheme } from '../../context/ThemeContext';
 import { ToneState } from '../../hooks/useLdlTone';
@@ -101,7 +101,7 @@ export function LdlToneStep({
           <Text style={[styles.meterLabel, { color: c.textSecondary }]}>
             {LDL_START_LEVEL_DB} dB
           </Text>
-          <Text style={[styles.meterLabel, { fontFamily: MONO_FONT, color: c.textPrimary }]}>
+          <Text style={[styles.meterLabel, { fontWeight: '700', color: c.textPrimary }]}>
             {Math.round(levelDb)} dB
           </Text>
           <Text style={[styles.meterLabel, { color: c.textSecondary }]}>
@@ -117,8 +117,8 @@ export function LdlToneStep({
         disabled={!playing}
         activeOpacity={0.85}
       >
-        <Text style={styles.stopBtnText}>STOP</Text>
-        <Text style={styles.stopBtnSub}>UNCOMFORTABLE</Text>
+        <Text style={styles.stopBtnText}>Stop</Text>
+        <Text style={styles.stopBtnSub}>This is uncomfortable</Text>
       </TouchableOpacity>
 
       <View style={styles.secondaryRow}>
@@ -158,8 +158,7 @@ const styles = StyleSheet.create({
   },
   freq: {
     fontSize: 44,
-    fontWeight: '800',
-    fontFamily: MONO_FONT,
+    fontFamily: SERIF_FONT,
     marginBottom: 8,
   },
   stateText: {
@@ -185,29 +184,26 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   meterLabel: {
-    fontSize: 10,
-    fontFamily: MONO_FONT,
-    letterSpacing: 0.5,
+    fontSize: 11,
+    fontFamily: SANS_FONT,
+    letterSpacing: 0.2,
   },
   stopBtn: {
-    minHeight: 130,
+    minHeight: 132,
     borderRadius: RADIUS,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stopBtnText: {
-    fontSize: 36,
-    fontFamily: MONO_FONT,
-    fontWeight: '700',
-    letterSpacing: 8,
-    color: '#FFF4E4',
+    fontSize: 30,
+    fontFamily: SERIF_FONT,
+    color: '#FBF4E6',
   },
   stopBtnSub: {
-    fontSize: 12,
-    fontFamily: MONO_FONT,
-    fontWeight: '700',
-    letterSpacing: 3,
-    color: '#FFF4E4',
+    fontSize: 13,
+    fontFamily: SANS_FONT,
+    fontWeight: '600',
+    color: '#FBF4E6',
     opacity: 0.85,
     marginTop: 4,
   },
@@ -224,7 +220,7 @@ const styles = StyleSheet.create({
   },
   secondaryText: {
     fontSize: 13,
-    fontFamily: MONO_FONT,
+    fontFamily: SANS_FONT,
     fontWeight: '600',
   },
 });

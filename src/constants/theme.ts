@@ -1,22 +1,27 @@
 import { Platform } from 'react-native';
 
-// ── "Lamplight Terminal" design system ──────────────────────────────────────
-// A hi-fi instrument panel lit by a warm lamp: pine-black ground, cream text,
-// one amber "signal" accent, one vermilion "cut" accent. Never pure white,
-// never cyan. Light mode is the same instrument on daylight paper.
+// ── "Sanctuary · Evergreen" design system ───────────────────────────────────
+// Haven is a wellness device, not a console. Deep evergreen warmed by ivory
+// text and a honey glow — the Hermes *brand* warmth, not its terminal. Serif
+// display type, soft rounded surfaces, generous air. Every screen answers one
+// question calmly.
 
-// Mono carries the whole identity — hierarchy comes from weight/tracking/case.
-export const MONO_FONT =
-  Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) ?? 'monospace';
+/** Display face — warm, editorial. Headings and big readouts only. */
+export const SERIF_FONT =
+  Platform.select({ ios: 'Georgia', android: 'serif', default: 'Georgia, serif' }) ?? 'serif';
 
-// Sans is reserved for instructional paragraphs (LDL intro) only.
+/** Body/UI face. */
 export const SANS_FONT =
   Platform.select({ ios: 'System', android: 'sans-serif', default: 'sans-serif' }) ?? 'sans-serif';
 
-/** Corner radius for cards/modules — crisp instrument, not app-store bubble. */
-export const RADIUS = 6;
-/** Radius for small chips/badges. */
-export const RADIUS_SM = 3;
+/** Retained for engineering/debug surfaces only — not part of the brand UI. */
+export const MONO_FONT =
+  Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) ?? 'monospace';
+
+/** Soft card radius. */
+export const RADIUS = 20;
+/** Buttons, chips, inner surfaces. */
+export const RADIUS_SM = 12;
 
 export interface ColorPalette {
   bg: string;
@@ -54,70 +59,70 @@ export interface Theme {
   colors: ColorPalette;
 }
 
-// ── Dark: Lamplight Terminal ────────────────────────────────────────────────
+// ── Dark: Evergreen ─────────────────────────────────────────────────────────
 export const darkTheme: Theme = {
   dark: true,
   colors: {
-    bg:                  '#081714',  // Pine Black
-    cardBg:              '#0F231F',  // Deep Moss module
-    cardBgDeep:          '#061210',  // recessed wells (TX monitor)
-    border:              '#20362F',
-    borderDeep:          '#182B26',
-    accent:              '#FFBD54',  // Signal Amber — live values, signal flowing
-    accentSecondary:     '#D89A3A',
-    textPrimary:         '#F2E8D5',  // Lamplight Cream — never pure white
-    textSecondary:       '#8CA096',  // Sage Ash
-    statusConnected:     '#FFBD54',
-    statusScanning:      '#D89A3A',
-    statusDisconnected:  '#E0584D',  // Vermilion — signal cut
-    statusIdle:          '#8CA096',
-    btnConnectBg:        '#FFBD54',
-    btnConnectText:      '#081714',
-    btnDisconnectBg:     '#0F231F',
-    btnDisconnectBorder: '#E0584D',
-    qBadgeBg:            '#132A24',
-    bypassOn:            '#FFBD54',  // filter active = signal amber
-    bypassOff:           '#E0584D',  // bypassed / stop = vermilion
-    sliderMax:           '#24382F',
-    sliderDisabled:      '#31453C',
-    payloadText:         '#FFBD54',
-    toggleBg:            '#0F231F',
-    toggleBorder:        '#20362F',
-    frameBg:             '#030B09',
-    frameBorder:         '#1C302A',
+    bg:                  '#111F1A',  // deep evergreen
+    cardBg:              '#1A2B25',
+    cardBgDeep:          '#0D1814',
+    border:              '#27392F',
+    borderDeep:          '#1F3029',
+    accent:              '#E9A860',  // honey glow
+    accentSecondary:     '#C98D4B',
+    textPrimary:         '#F4EEE1',  // warm ivory
+    textSecondary:       '#9CADA0',
+    statusConnected:     '#E9A860',
+    statusScanning:      '#C98D4B',
+    statusDisconnected:  '#D2604F',  // terracotta — reserved for stop/paused/alerts
+    statusIdle:          '#9CADA0',
+    btnConnectBg:        '#E9A860',
+    btnConnectText:      '#111F1A',
+    btnDisconnectBg:     '#1A2B25',
+    btnDisconnectBorder: '#D2604F',
+    qBadgeBg:            '#20332B',
+    bypassOn:            '#E9A860',
+    bypassOff:           '#D2604F',
+    sliderMax:           '#2B3E34',
+    sliderDisabled:      '#374A3F',
+    payloadText:         '#E9A860',
+    toggleBg:            '#1A2B25',
+    toggleBorder:        '#27392F',
+    frameBg:             '#0A1310',
+    frameBorder:         '#22332B',
   },
 };
 
-// ── Light: Daylight Paper ───────────────────────────────────────────────────
+// ── Light: Ivory ────────────────────────────────────────────────────────────
 export const lightTheme: Theme = {
   dark: false,
   colors: {
-    bg:                  '#F5EEDC',  // cream paper
-    cardBg:              '#FCF7EA',
-    cardBgDeep:          '#EFE6CF',
-    border:              '#D9CCAD',
-    borderDeep:          '#CBBE9F',
-    accent:              '#8C5E0A',  // burnt amber, ink-dark for contrast
-    accentSecondary:     '#6E4A08',
-    textPrimary:         '#241E12',
-    textSecondary:       '#77705A',
-    statusConnected:     '#8C5E0A',
-    statusScanning:      '#9A6A10',
-    statusDisconnected:  '#B23A2E',  // brick
-    statusIdle:          '#77705A',
-    btnConnectBg:        '#241E12',  // ink button on paper
-    btnConnectText:      '#F5EEDC',
-    btnDisconnectBg:     '#F1E9D4',
-    btnDisconnectBorder: '#B23A2E',
-    qBadgeBg:            '#F0E7CE',
-    bypassOn:            '#8C5E0A',
-    bypassOff:           '#B23A2E',
-    sliderMax:           '#D9CCAD',
-    sliderDisabled:      '#CBBE9F',
-    payloadText:         '#8C5E0A',
-    toggleBg:            '#FCF7EA',
-    toggleBorder:        '#D9CCAD',
-    frameBg:             '#E7DCBF',
-    frameBorder:         '#C9BB98',
+    bg:                  '#F6F1E6',  // warm ivory
+    cardBg:              '#FDFAF3',
+    cardBgDeep:          '#EFE8D8',
+    border:              '#E2D8C4',
+    borderDeep:          '#D6CBB3',
+    accent:              '#9C6410',  // deep honey — ink-strength on ivory
+    accentSecondary:     '#7C4F0C',
+    textPrimary:         '#27221A',
+    textSecondary:       '#7E7869',
+    statusConnected:     '#9C6410',
+    statusScanning:      '#8A5A0E',
+    statusDisconnected:  '#B5473A',
+    statusIdle:          '#7E7869',
+    btnConnectBg:        '#9C6410',
+    btnConnectText:      '#FDFAF3',
+    btnDisconnectBg:     '#F2ECDD',
+    btnDisconnectBorder: '#B5473A',
+    qBadgeBg:            '#F1EADA',
+    bypassOn:            '#9C6410',
+    bypassOff:           '#B5473A',
+    sliderMax:           '#DFD5BF',
+    sliderDisabled:      '#D2C7AF',
+    payloadText:         '#9C6410',
+    toggleBg:            '#FDFAF3',
+    toggleBorder:        '#E2D8C4',
+    frameBg:             '#E9E1CF',
+    frameBorder:         '#D2C7AC',
   },
 };

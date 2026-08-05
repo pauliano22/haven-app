@@ -1,14 +1,15 @@
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { FadeIn } from './src/components/FadeIn';
+import { TabBar } from './src/components/TabBar';
 import { BleProvider } from './src/context/BleContext';
+import { FilterProvider } from './src/context/FilterContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
-import { Dashboard } from './src/screens/Dashboard';
+import { Tab } from './src/navigation';
+import { Home } from './src/screens/Home';
 import { LdlTest } from './src/screens/LdlTest';
-import { FilterBand } from './src/types';
-
-type Screen = 'dashboard' | 'ldl';
+import { Tune } from './src/screens/Tune';
 
 /**
  * On web, the phone layout renders inside a centered 480px column so the
@@ -36,29 +37,20 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
 
 function Root() {
   const { theme } = useTheme();
-  const [screen, setScreen] = useState<Screen>('dashboard');
-  // Bands produced by the LDL results screen, consumed once by the dashboard.
-  const [ldlBands, setLdlBands] = useState<FilterBand[] | null>(null);
-
-  const openLdl = useCallback(() => setScreen('ldl'), []);
-  const closeLdl = useCallback(() => setScreen('dashboard'), []);
-  const consumeLdlBands = useCallback(() => setLdlBands(null), []);
+  const [tab, setTab] = useState<Tab>('home');
 
   return (
     <>
       <StatusBar style={theme.dark ? 'light' : 'dark'} />
       <PhoneFrame>
-        <FadeIn key={screen}>
-          {screen === 'dashboard' ? (
-            <Dashboard
-              onOpenLdl={openLdl}
-              importedBands={ldlBands}
-              onImportConsumed={consumeLdlBands}
-            />
-          ) : (
-            <LdlTest onClose={closeLdl} onApplyBands={setLdlBands} />
-          )}
-        </FadeIn>
+        <View style={styles.body}>
+          <FadeIn key={tab}>
+            {tab === 'home' && <Home onNavigate={setTab} />}
+            {tab === 'tune' && <Tune />}
+            {tab === 'hearing' && <LdlTest />}
+          </FadeIn>
+        </View>
+        <TabBar active={tab} onSelect={setTab} />
       </PhoneFrame>
     </>
   );
@@ -68,7 +60,9 @@ export default function App() {
   return (
     <ThemeProvider>
       <BleProvider>
-        <Root />
+        <FilterProvider>
+          <Root />
+        </FilterProvider>
       </BleProvider>
     </ThemeProvider>
   );
@@ -86,5 +80,8 @@ const styles = StyleSheet.create({
     maxWidth: 480,
     borderLeftWidth: 1,
     borderRightWidth: 1,
+  },
+  body: {
+    flex: 1,
   },
 });

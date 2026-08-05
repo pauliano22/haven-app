@@ -1,16 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Platform, SafeAreaView, ScrollView, StyleSheet, Text } from 'react-native';
 import { ConnectionBar } from '../components/ConnectionBar';
-import { MONO_FONT } from '../constants/theme';
 import { LdlIntro } from '../components/ldl/LdlIntro';
 import { LdlResults, SENSITIVE_LDL_THRESHOLD_DB } from '../components/ldl/LdlResults';
 import { LdlToneStep } from '../components/ldl/LdlToneStep';
@@ -21,18 +12,14 @@ import {
   Q_DEFAULT,
 } from '../constants/dsp';
 import { LDL_TEST_FREQUENCIES_HZ, MAX_TONE_LEVEL_DB } from '../constants/safety';
+import { SANS_FONT, SERIF_FONT } from '../constants/theme';
 import { useBle } from '../context/BleContext';
+import { useFilters } from '../context/FilterContext';
 import { useTheme } from '../context/ThemeContext';
 import { ToneStopInfo, useLdlTone } from '../hooks/useLdlTone';
 import { FilterBand, LdlResult } from '../types';
 
 type Phase = 'intro' | 'testing' | 'results';
-
-interface Props {
-  onClose: () => void;
-  /** Deliver dampening bands derived from the results back to the dashboard. */
-  onApplyBands: (bands: FilterBand[]) => void;
-}
 
 let _ldlBandId = 1000;
 
@@ -58,8 +45,9 @@ function resultsToBands(results: LdlResult[]): FilterBand[] {
     }));
 }
 
-export function LdlTest({ onClose, onApplyBands }: Props) {
+export function LdlTest() {
   const { status } = useBle();
+  const { applyBands } = useFilters();
   const { theme } = useTheme();
   const c = theme.colors;
   const { toneState, levelDb, start, stop } = useLdlTone();
@@ -134,20 +122,17 @@ export function LdlTest({ onClose, onApplyBands }: Props) {
   }, [stop, results.length]);
 
   const handleApply = useCallback(() => {
-    onApplyBands(resultsToBands(results));
-    onClose();
-  }, [results, onApplyBands, onClose]);
+    applyBands(resultsToBands(results));
+    setPhase('intro');
+  }, [results, applyBands]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.bg }]}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => { stop(); onClose(); }} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={[styles.backLink, { color: c.accent }]}>‹ Dashboard</Text>
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: c.textSecondary }]}>LDL TEST</Text>
-          <View style={styles.headerSpacer} />
-        </View>
+        <Text style={[styles.title, { color: c.textPrimary }]}>Hearing test</Text>
+        <Text style={[styles.subtitle, { color: c.textSecondary }]}>
+          Find the sounds that bother you, safely.
+        </Text>
 
         <ConnectionBar />
 
@@ -171,7 +156,7 @@ export function LdlTest({ onClose, onApplyBands }: Props) {
             results={results}
             onApply={handleApply}
             onRedo={handleBegin}
-            onClose={onClose}
+            onClose={() => setPhase('intro')}
           />
         )}
       </ScrollView>
@@ -184,28 +169,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scroll: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 40,
+    paddingHorizontal: 24,
+    paddingTop: 18,
+    paddingBottom: 32,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 20,
+  title: {
+    fontFamily: SERIF_FONT,
+    fontSize: 26,
+    marginBottom: 6,
   },
-  backLink: {
+  subtitle: {
+    fontFamily: SANS_FONT,
     fontSize: 13,
-    fontFamily: MONO_FONT,
-    fontWeight: '700',
-  },
-  headerTitle: {
-    fontSize: 12,
-    fontFamily: MONO_FONT,
-    fontWeight: '700',
-    letterSpacing: 3,
-  },
-  headerSpacer: {
-    width: 70,
+    lineHeight: 19,
+    marginBottom: 18,
   },
 });

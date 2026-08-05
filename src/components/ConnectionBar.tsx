@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useBle } from '../context/BleContext';
 import { useTheme } from '../context/ThemeContext';
-import { ColorPalette, MONO_FONT, RADIUS, RADIUS_SM } from '../constants/theme';
+import { ColorPalette, RADIUS, RADIUS_SM, SANS_FONT } from '../constants/theme';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { ConnectionStatus } from '../types';
 
@@ -125,24 +125,21 @@ function makeStyles(c: ColorPalette) {
       alignItems: 'center',
       gap: 10,
     },
-    // Square status LED, like a panel indicator
     dot: {
       width: 8,
       height: 8,
-      borderRadius: 1,
+      borderRadius: 4,
     },
     statusLabel: {
-      fontSize: 12,
-      fontFamily: MONO_FONT,
-      fontWeight: '700',
-      letterSpacing: 1.5,
-      textTransform: 'uppercase',
+      fontSize: 13,
+      fontFamily: SANS_FONT,
+      fontWeight: '600',
+      letterSpacing: 0.2,
     },
     queuedLabel: {
-      fontSize: 10,
-      fontFamily: MONO_FONT,
+      fontSize: 11,
+      fontFamily: SANS_FONT,
       color: c.textSecondary,
-      letterSpacing: 0.5,
     },
     button: {
       paddingHorizontal: 16,
@@ -158,12 +155,11 @@ function makeStyles(c: ColorPalette) {
       borderColor: c.btnDisconnectBorder,
     },
     buttonText: {
-      fontSize: 12,
-      fontFamily: MONO_FONT,
+      fontSize: 13,
+      fontFamily: SANS_FONT,
       fontWeight: '700',
       color: c.btnConnectText,
-      letterSpacing: 1,
-      textTransform: 'uppercase',
+      letterSpacing: 0.2,
     },
     buttonTextDisconnect: {
       color: c.btnDisconnectBorder,

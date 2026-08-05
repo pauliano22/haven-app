@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { MONO_FONT, RADIUS, RADIUS_SM, SANS_FONT } from '../../constants/theme';
+import { RADIUS, RADIUS_SM, SANS_FONT, SERIF_FONT } from '../../constants/theme';
 import { MAX_TONE_LEVEL_DB } from '../../constants/safety';
 import { useTheme } from '../../context/ThemeContext';
 import { LdlResult } from '../../types';
@@ -70,7 +70,7 @@ export function LdlResults({ results, onApply, onRedo, onClose }: Props) {
           activeOpacity={0.8}
         >
           <Text style={[styles.applyText, { color: c.btnConnectText }]}>
-            APPLY {sensitive.length} DAMPENING BAND{sensitive.length > 1 ? 'S' : ''}
+            Soften {sensitive.length} {sensitive.length > 1 ? 'sounds' : 'sound'}
           </Text>
         </TouchableOpacity>
       ) : (
@@ -93,7 +93,7 @@ export function LdlResults({ results, onApply, onRedo, onClose }: Props) {
           onPress={onClose}
         >
           <Text style={[styles.secondaryText, { color: c.textSecondary }]}>
-            Back to dashboard
+            Close
           </Text>
         </TouchableOpacity>
       </View>
@@ -108,9 +108,8 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   title: {
-    fontSize: 22,
-    fontFamily: MONO_FONT,
-    fontWeight: '700',
+    fontSize: 26,
+    fontFamily: SERIF_FONT,
     marginBottom: 8,
   },
   subtitle: {
@@ -127,13 +126,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   rowFreq: {
-    fontSize: 14,
-    fontWeight: '700',
-    fontFamily: MONO_FONT,
+    fontSize: 15,
+    fontFamily: SERIF_FONT,
   },
   rowLdl: {
-    fontSize: 11,
-    fontFamily: MONO_FONT,
+    fontSize: 12,
+    fontFamily: SANS_FONT,
   },
   applyBtn: {
     borderRadius: RADIUS_SM,
@@ -142,10 +140,10 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   applyText: {
-    fontSize: 13,
-    fontFamily: MONO_FONT,
+    fontSize: 14,
+    fontFamily: SANS_FONT,
     fontWeight: '700',
-    letterSpacing: 1.5,
+    letterSpacing: 0.3,
   },
   noneText: {
     fontSize: 12,
@@ -167,7 +165,7 @@ const styles = StyleSheet.create({
   },
   secondaryText: {
     fontSize: 13,
-    fontFamily: MONO_FONT,
+    fontFamily: SANS_FONT,
     fontWeight: '600',
   },
 });
