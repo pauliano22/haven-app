@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
+import { ATTEN_MAX_DB } from '../constants/dsp';
 import { useTheme } from '../context/ThemeContext';
 import { FilterBand } from '../types';
 
@@ -38,12 +39,16 @@ function buildCurve(width: number, bands: FilterBand[], dipScale: number): Curve
     const t = i / SAMPLES;
     const f = F_MIN * Math.pow(F_MAX / F_MIN, t);
     const x = t * width;
-    // Composite: sum individual band dips, clamped to 1
+    // Composite: sum individual band dips, clamped to 1. Each band's dip is
+    // scaled by its dampening depth — a full notch reaches maxDip, a gentle
+    // cut only dents the curve.
     let totalDip = 0;
     for (const band of bands) {
+      const depth = Math.min(band.attenDb, ATTEN_MAX_DB) / ATTEN_MAX_DB;
       const sigmaOctaves = 1 / (band.q * 1.25);
       const logRatio = Math.log2(f / band.f0);
-      const dip = Math.exp(-0.5 * Math.pow(logRatio / sigmaOctaves, 2)) * dipScale;
+      const dip =
+        Math.exp(-0.5 * Math.pow(logRatio / sigmaOctaves, 2)) * dipScale * depth;
       totalDip = Math.min(1, totalDip + dip);
     }
     pts.push([x, baseline + totalDip * maxDip]);
@@ -62,7 +67,9 @@ function buildCurve(width: number, bands: FilterBand[], dipScale: number): Curve
   const bandMarkers: BandMarker[] = bands.map(band => ({
     id: band.id,
     notchX: freqToX(band.f0, width),
-    notchY: baseline + maxDip * dipScale,
+    notchY:
+      baseline +
+      maxDip * dipScale * (Math.min(band.attenDb, ATTEN_MAX_DB) / ATTEN_MAX_DB),
   }));
 
   return { curvePath, fillPath, baseline, bandMarkers };

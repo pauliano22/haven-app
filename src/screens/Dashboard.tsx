@@ -19,14 +19,18 @@ import { useTheme } from '../context/ThemeContext';
 import { useDebouncedCallback } from '../hooks/useDebounce';
 import { FilterBand, WireFilterBand } from '../types';
 
-const F0_MIN = 200;
-const F0_MAX = 8000;
-const F0_DEFAULT = 4500;
-const Q_MIN = 1.0;
-const Q_MAX = 20.0;
-const Q_DEFAULT = 10.0;
-// Matches MAX_BANDS in the firmware — payloads with more bands are truncated on-device.
-const MAX_BANDS = 5;
+import {
+  ATTEN_DEFAULT_DB,
+  ATTEN_MAX_DB,
+  ATTEN_MIN_DB,
+  F0_DEFAULT,
+  F0_MAX,
+  F0_MIN,
+  MAX_BANDS,
+  Q_DEFAULT,
+  Q_MAX,
+  Q_MIN,
+} from '../constants/dsp';
 
 function formatFrequency(hz: number): string {
   if (hz >= 1000) {
@@ -52,10 +56,28 @@ function makeId(): string {
 
 // Strip UI-only fields and use the uppercase Q key the firmware expects.
 function toWireBands(bands: FilterBand[]): WireFilterBand[] {
-  return bands.map(b => ({ f0: b.f0, Q: +b.q.toFixed(1) }));
+  return bands.map(b => ({
+    f0: b.f0,
+    Q: +b.q.toFixed(1),
+    atten_db: Math.round(b.attenDb),
+  }));
 }
 
-export function Dashboard() {
+function attenLabel(attenDb: number): string {
+  if (attenDb >= ATTEN_MAX_DB) return 'Max (Notch)';
+  if (attenDb >= 25) return 'Strong';
+  if (attenDb >= 12) return 'Moderate';
+  return 'Gentle';
+}
+
+interface DashboardProps {
+  onOpenLdl: () => void;
+  /** Bands handed over from the LDL test results screen. */
+  importedBands: FilterBand[] | null;
+  onImportConsumed: () => void;
+}
+
+export function Dashboard({ onOpenLdl, importedBands, onImportConsumed }: DashboardProps) {
   const { status, queuedCount, sendPayload } = useBle();
   const { theme, toggleTheme } = useTheme();
   const c = theme.colors;
@@ -67,7 +89,7 @@ export function Dashboard() {
 
   const [bands, setBands] = useState<FilterBand[]>(() => {
     const id = makeId();
-    return [{ id, f0: F0_DEFAULT, q: Q_DEFAULT }];
+    return [{ id, f0: F0_DEFAULT, q: Q_DEFAULT, attenDb: ATTEN_DEFAULT_DB }];
   });
   const [selectedId, setSelectedId] = useState<string>(bands[0].id);
   const [bypass, setBypass] = useState(false);
@@ -86,10 +108,21 @@ export function Dashboard() {
     100,
   );
 
+  // Adopt bands produced by the LDL test: replace the current set and push
+  // them to the device immediately.
+  useEffect(() => {
+    if (!importedBands || importedBands.length === 0) return;
+    setBands(importedBands);
+    setSelectedId(importedBands[0].id);
+    setBypass(false);
+    sendPayload({ type: 'MULTI_FILTER', bands: toWireBands(importedBands) });
+    onImportConsumed();
+  }, [importedBands, onImportConsumed, sendPayload]);
+
   const addBand = useCallback(() => {
     if (bands.length >= MAX_BANDS) return;
     const id = makeId();
-    const newBand: FilterBand = { id, f0: F0_DEFAULT, q: Q_DEFAULT };
+    const newBand: FilterBand = { id, f0: F0_DEFAULT, q: Q_DEFAULT, attenDb: ATTEN_DEFAULT_DB };
     setBands(prev => [...prev, newBand]);
     setSelectedId(id);
   }, [bands.length]);
@@ -127,6 +160,18 @@ export function Dashboard() {
       const rounded = Math.round(value * 10) / 10;
       const nextBands = bands.map(b =>
         b.id === selectedId ? { ...b, q: rounded } : b,
+      );
+      setBands(nextBands);
+      if (!bypass) debouncedSendFilter(nextBands);
+    },
+    [bands, selectedId, bypass, debouncedSendFilter],
+  );
+
+  const handleAttenChange = useCallback(
+    (value: number) => {
+      const rounded = Math.round(value);
+      const nextBands = bands.map(b =>
+        b.id === selectedId ? { ...b, attenDb: rounded } : b,
       );
       setBands(nextBands);
       if (!bypass) debouncedSendFilter(nextBands);
@@ -268,7 +313,7 @@ export function Dashboard() {
         {/* ── Q-Factor Slider ─────────────────────────── */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardLabel}>NOTCH WIDTH</Text>
+            <Text style={styles.cardLabel}>BAND WIDTH</Text>
             <Text style={styles.cardHint}>Q-Factor</Text>
           </View>
 
@@ -300,6 +345,41 @@ export function Dashboard() {
           </View>
         </View>
 
+        {/* ── Dampening Depth Slider ──────────────────── */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardLabel}>DAMPENING</Text>
+            <Text style={styles.cardHint}>Reduction at target frequency</Text>
+          </View>
+
+          <View style={styles.qValueRow}>
+            <Text style={styles.qValue}>
+              −{Math.round(selectedBand.attenDb)} dB
+            </Text>
+            <View style={styles.qDescBadge}>
+              <Text style={styles.qDescText}>{attenLabel(selectedBand.attenDb)}</Text>
+            </View>
+          </View>
+
+          <Slider
+            style={styles.secondarySlider}
+            minimumValue={ATTEN_MIN_DB}
+            maximumValue={ATTEN_MAX_DB}
+            value={selectedBand.attenDb}
+            step={1}
+            onValueChange={handleAttenChange}
+            minimumTrackTintColor={sliderTrack}
+            maximumTrackTintColor={c.sliderMax}
+            thumbTintColor={sliderThumbQ}
+            disabled={bypass}
+          />
+
+          <View style={styles.rangeRow}>
+            <Text style={styles.rangeLabel}>−{ATTEN_MIN_DB} dB  Subtle</Text>
+            <Text style={styles.rangeLabel}>Full Notch  −{ATTEN_MAX_DB} dB</Text>
+          </View>
+        </View>
+
         {/* ── Bypass Toggle ───────────────────────────── */}
         <View style={styles.card}>
           <View style={styles.bypassRow}>
@@ -321,6 +401,25 @@ export function Dashboard() {
                 ios_backgroundColor={c.bypassOn}
               />
             </View>
+          </View>
+        </View>
+
+        {/* ── LDL Test Entry ──────────────────────────── */}
+        <View style={styles.card}>
+          <View style={styles.bypassRow}>
+            <View style={styles.ldlTextBlock}>
+              <Text style={styles.cardLabel}>HEARING PROFILE</Text>
+              <Text style={styles.cardHint}>
+                Find your uncomfortable frequencies with a guided test
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.ldlBtn}
+              onPress={onOpenLdl}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.ldlBtnText}>LDL TEST ›</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -568,6 +667,24 @@ function makeStyles(c: ColorPalette) {
     bypassStatus: {
       fontSize: 11,
       fontWeight: '700',
+      letterSpacing: 1.5,
+    },
+
+    // ── LDL entry
+    ldlTextBlock: {
+      flex: 1,
+      paddingRight: 12,
+    },
+    ldlBtn: {
+      backgroundColor: c.btnConnectBg,
+      borderRadius: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+    },
+    ldlBtnText: {
+      color: c.btnConnectText,
+      fontSize: 12,
+      fontWeight: '800',
       letterSpacing: 1.5,
     },
 
