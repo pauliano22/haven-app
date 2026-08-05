@@ -2,8 +2,10 @@ import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
 import { ATTEN_MAX_DB } from '../constants/dsp';
+import { RADIUS } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import { FilterBand } from '../types';
+import { SectionRule } from './SectionRule';
 
 const F_MIN = 200;
 const F_MAX = 8000;
@@ -95,7 +97,7 @@ export function VisualizerCurve({ bands, selectedId, bypass }: Props) {
 
   return (
     <View style={[styles.card, { backgroundColor: c.cardBg, borderColor: c.border }]}>
-      <Text style={[styles.label, { color: c.textSecondary }]}>FREQUENCY RESPONSE</Text>
+      <SectionRule label="Frequency response" hint={bypass ? 'bypassed' : 'live'} />
 
       <View
         style={styles.svgWrap}
@@ -224,18 +226,12 @@ export function VisualizerCurve({ bands, selectedId, bypass }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    borderRadius: RADIUS,
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 6,
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 8,
+    marginBottom: 14,
   },
   svgWrap: {
     width: '100%',

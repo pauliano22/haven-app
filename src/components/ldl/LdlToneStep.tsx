@@ -1,9 +1,10 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { MONO_FONT } from '../../constants/theme';
+import { MONO_FONT, RADIUS, RADIUS_SM } from '../../constants/theme';
 import { LDL_START_LEVEL_DB, MAX_TONE_LEVEL_DB } from '../../constants/safety';
 import { useTheme } from '../../context/ThemeContext';
 import { ToneState } from '../../hooks/useLdlTone';
+import { SectionRule } from '../SectionRule';
 
 interface Props {
   f0: number;
@@ -43,10 +44,10 @@ export function LdlToneStep({
   return (
     <View style={styles.wrap}>
       <View style={[styles.card, { backgroundColor: c.cardBg, borderColor: c.border }]}>
-        <Text style={[styles.stepLabel, { color: c.textSecondary }]}>
-          TONE {stepIndex + 1} OF {stepCount}
-        </Text>
-        <Text style={[styles.freq, { color: c.textPrimary }]}>{formatFreq(f0)}</Text>
+        <View style={styles.ruleWrap}>
+          <SectionRule label={`Tone ${stepIndex + 1} / ${stepCount}`} hint="rising" />
+        </View>
+        <Text style={[styles.freq, { color: c.accent }]}>{formatFreq(f0)}</Text>
 
         <Text style={[styles.stateText, { color: c.textSecondary }]}>
           {toneState === 'ramping' && 'Rising slowly — press STOP when uncomfortable'}
@@ -118,16 +119,13 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   card: {
-    borderRadius: 16,
+    borderRadius: RADIUS,
     borderWidth: 1,
     padding: 20,
     alignItems: 'center',
   },
-  stepLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginBottom: 10,
+  ruleWrap: {
+    alignSelf: 'stretch',
   },
   freq: {
     fontSize: 44,
@@ -142,13 +140,13 @@ const styles = StyleSheet.create({
   },
   meterTrack: {
     width: '100%',
-    height: 10,
-    borderRadius: 5,
+    height: 8,
+    borderRadius: 2,
     overflow: 'hidden',
   },
   meterFill: {
     height: '100%',
-    borderRadius: 5,
+    borderRadius: 2,
   },
   meterLabels: {
     width: '100%',
@@ -157,26 +155,29 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   meterLabel: {
-    fontSize: 11,
+    fontSize: 10,
+    fontFamily: MONO_FONT,
     letterSpacing: 0.5,
   },
   stopBtn: {
     minHeight: 130,
-    borderRadius: 20,
+    borderRadius: RADIUS,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stopBtnText: {
     fontSize: 36,
-    fontWeight: '900',
-    letterSpacing: 6,
-    color: '#FFFFFF',
+    fontFamily: MONO_FONT,
+    fontWeight: '700',
+    letterSpacing: 8,
+    color: '#FFF4E4',
   },
   stopBtnSub: {
     fontSize: 12,
+    fontFamily: MONO_FONT,
     fontWeight: '700',
     letterSpacing: 3,
-    color: '#FFFFFF',
+    color: '#FFF4E4',
     opacity: 0.85,
     marginTop: 4,
   },
@@ -187,12 +188,13 @@ const styles = StyleSheet.create({
   secondaryBtn: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
+    borderRadius: RADIUS_SM,
+    paddingVertical: 13,
     alignItems: 'center',
   },
   secondaryText: {
     fontSize: 13,
+    fontFamily: MONO_FONT,
     fontWeight: '600',
   },
 });

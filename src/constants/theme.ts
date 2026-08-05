@@ -1,8 +1,22 @@
 import { Platform } from 'react-native';
 
-// Use a true monospace family so number readouts don't jitter width
+// ── "Lamplight Terminal" design system ──────────────────────────────────────
+// A hi-fi instrument panel lit by a warm lamp: pine-black ground, cream text,
+// one amber "signal" accent, one vermilion "cut" accent. Never pure white,
+// never cyan. Light mode is the same instrument on daylight paper.
+
+// Mono carries the whole identity — hierarchy comes from weight/tracking/case.
 export const MONO_FONT =
   Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }) ?? 'monospace';
+
+// Sans is reserved for instructional paragraphs (LDL intro) only.
+export const SANS_FONT =
+  Platform.select({ ios: 'System', android: 'sans-serif', default: 'sans-serif' }) ?? 'sans-serif';
+
+/** Corner radius for cards/modules — crisp instrument, not app-store bubble. */
+export const RADIUS = 6;
+/** Radius for small chips/badges. */
+export const RADIUS_SM = 3;
 
 export interface ColorPalette {
   bg: string;
@@ -30,6 +44,9 @@ export interface ColorPalette {
   payloadText: string;
   toggleBg: string;
   toggleBorder: string;
+  /** Page behind the app column on the web preview. */
+  frameBg: string;
+  frameBorder: string;
 }
 
 export interface Theme {
@@ -37,66 +54,70 @@ export interface Theme {
   colors: ColorPalette;
 }
 
-// ── Surgical Dark Mode ──────────────────────────────────────────────────────
+// ── Dark: Lamplight Terminal ────────────────────────────────────────────────
 export const darkTheme: Theme = {
   dark: true,
   colors: {
-    bg:                  '#0F1115',  // Deep Space
-    cardBg:              '#1A1D24',  // Surface
-    cardBgDeep:          '#13161C',
-    border:              '#2A2E38',
-    borderDeep:          '#22262F',
-    accent:              '#00E5FF',  // Clinical Teal
-    accentSecondary:     '#00B4CC',
-    textPrimary:         '#FFFFFF',
-    textSecondary:       '#8F9BB3',  // per spec
-    statusConnected:     '#00E5FF',
-    statusScanning:      '#FFAB00',  // Alert Amber
-    statusDisconnected:  '#FFAB00',  // Alert Amber — warning, not error red
-    statusIdle:          '#8F9BB3',
-    btnConnectBg:        '#00E5FF',
-    btnConnectText:      '#0F1115',
-    btnDisconnectBg:     '#2A2E38',
-    btnDisconnectBorder: '#FFAB00',
-    qBadgeBg:            '#1E2230',
-    bypassOn:            '#00E5FF',
-    bypassOff:           '#FFAB00',  // Alert Amber for bypass state
-    sliderMax:           '#2A2E38',
-    sliderDisabled:      '#2A2E38',
-    payloadText:         '#00E5FF',
-    toggleBg:            '#1A1D24',
-    toggleBorder:        '#2A2E38',
+    bg:                  '#081714',  // Pine Black
+    cardBg:              '#0F231F',  // Deep Moss module
+    cardBgDeep:          '#061210',  // recessed wells (TX monitor)
+    border:              '#20362F',
+    borderDeep:          '#182B26',
+    accent:              '#FFBD54',  // Signal Amber — live values, signal flowing
+    accentSecondary:     '#D89A3A',
+    textPrimary:         '#F2E8D5',  // Lamplight Cream — never pure white
+    textSecondary:       '#8CA096',  // Sage Ash
+    statusConnected:     '#FFBD54',
+    statusScanning:      '#D89A3A',
+    statusDisconnected:  '#E0584D',  // Vermilion — signal cut
+    statusIdle:          '#8CA096',
+    btnConnectBg:        '#FFBD54',
+    btnConnectText:      '#081714',
+    btnDisconnectBg:     '#0F231F',
+    btnDisconnectBorder: '#E0584D',
+    qBadgeBg:            '#132A24',
+    bypassOn:            '#FFBD54',  // filter active = signal amber
+    bypassOff:           '#E0584D',  // bypassed / stop = vermilion
+    sliderMax:           '#24382F',
+    sliderDisabled:      '#31453C',
+    payloadText:         '#FFBD54',
+    toggleBg:            '#0F231F',
+    toggleBorder:        '#20362F',
+    frameBg:             '#030B09',
+    frameBorder:         '#1C302A',
   },
 };
 
-// ── Clinical Light Mode ─────────────────────────────────────────────────────
+// ── Light: Daylight Paper ───────────────────────────────────────────────────
 export const lightTheme: Theme = {
   dark: false,
   colors: {
-    bg:                  '#EEF2F7',
-    cardBg:              '#FFFFFF',
-    cardBgDeep:          '#F4F7FB',
-    border:              '#D0DCE8',
-    borderDeep:          '#C8D8E8',
-    accent:              '#007A8C',  // darker teal for light backgrounds
-    accentSecondary:     '#005F70',
-    textPrimary:         '#0D1B2A',
-    textSecondary:       '#5A7090',
-    statusConnected:     '#007A8C',
-    statusScanning:      '#C87000',
-    statusDisconnected:  '#C87000',
-    statusIdle:          '#5A7090',
-    btnConnectBg:        '#007A8C',
-    btnConnectText:      '#FFFFFF',
-    btnDisconnectBg:     '#F0F4F8',
-    btnDisconnectBorder: '#C87000',
-    qBadgeBg:            '#EEF6F5',
-    bypassOn:            '#007A8C',
-    bypassOff:           '#C87000',
-    sliderMax:           '#D0DCE8',
-    sliderDisabled:      '#D0DCE8',
-    payloadText:         '#007A8C',
-    toggleBg:            '#FFFFFF',
-    toggleBorder:        '#D0DCE8',
+    bg:                  '#F5EEDC',  // cream paper
+    cardBg:              '#FCF7EA',
+    cardBgDeep:          '#EFE6CF',
+    border:              '#D9CCAD',
+    borderDeep:          '#CBBE9F',
+    accent:              '#8C5E0A',  // burnt amber, ink-dark for contrast
+    accentSecondary:     '#6E4A08',
+    textPrimary:         '#241E12',
+    textSecondary:       '#77705A',
+    statusConnected:     '#8C5E0A',
+    statusScanning:      '#9A6A10',
+    statusDisconnected:  '#B23A2E',  // brick
+    statusIdle:          '#77705A',
+    btnConnectBg:        '#241E12',  // ink button on paper
+    btnConnectText:      '#F5EEDC',
+    btnDisconnectBg:     '#F1E9D4',
+    btnDisconnectBorder: '#B23A2E',
+    qBadgeBg:            '#F0E7CE',
+    bypassOn:            '#8C5E0A',
+    bypassOff:           '#B23A2E',
+    sliderMax:           '#D9CCAD',
+    sliderDisabled:      '#CBBE9F',
+    payloadText:         '#8C5E0A',
+    toggleBg:            '#FCF7EA',
+    toggleBorder:        '#D9CCAD',
+    frameBg:             '#E7DCBF',
+    frameBorder:         '#C9BB98',
   },
 };

@@ -1,7 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LDL_TEST_FREQUENCIES_HZ, MAX_TONE_LEVEL_DB } from '../../constants/safety';
+import { MONO_FONT, RADIUS, RADIUS_SM, SANS_FONT } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { SectionRule } from '../SectionRule';
 
 interface Props {
   connected: boolean;
@@ -14,8 +16,9 @@ export function LdlIntro({ connected, onStart }: Props) {
 
   return (
     <View style={[styles.card, { backgroundColor: c.cardBg, borderColor: c.border }]}>
+      <SectionRule label="Loudness discomfort" hint="guided test" />
       <Text style={[styles.title, { color: c.textPrimary }]}>
-        Loudness Discomfort Test
+        Find what hurts.{'\n'}Then quiet it.
       </Text>
 
       <Text style={[styles.body, { color: c.textSecondary }]}>
@@ -65,36 +68,41 @@ export function LdlIntro({ connected, onStart }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
+    borderRadius: RADIUS,
     borderWidth: 1,
     padding: 20,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: 1,
+    fontSize: 22,
+    fontFamily: MONO_FONT,
+    fontWeight: '700',
+    letterSpacing: 0,
+    lineHeight: 30,
     marginBottom: 14,
   },
   body: {
     fontSize: 14,
-    lineHeight: 21,
+    fontFamily: SANS_FONT,
+    lineHeight: 22,
     marginBottom: 12,
   },
   safetyBox: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: RADIUS_SM,
     padding: 14,
     marginTop: 4,
     marginBottom: 16,
   },
   safetyTitle: {
     fontSize: 11,
+    fontFamily: MONO_FONT,
     fontWeight: '700',
     letterSpacing: 2,
     marginBottom: 6,
   },
   safetyText: {
     fontSize: 12,
+    fontFamily: SANS_FONT,
     lineHeight: 18,
   },
   warn: {
@@ -104,13 +112,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   startBtn: {
-    borderRadius: 12,
+    borderRadius: RADIUS_SM,
     paddingVertical: 16,
     alignItems: 'center',
   },
   startBtnText: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontFamily: MONO_FONT,
+    fontWeight: '700',
     letterSpacing: 2,
   },
 });

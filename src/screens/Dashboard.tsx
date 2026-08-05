@@ -11,8 +11,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ColorPalette, MONO_FONT } from '../constants/theme';
+import { ColorPalette, MONO_FONT, RADIUS, RADIUS_SM } from '../constants/theme';
+import { Blink } from '../components/Blink';
 import { ConnectionBar } from '../components/ConnectionBar';
+import { SectionRule } from '../components/SectionRule';
 import { VisualizerCurve } from '../components/VisualizerCurve';
 import { useBle } from '../context/BleContext';
 import { useTheme } from '../context/ThemeContext';
@@ -207,17 +209,22 @@ export function Dashboard({ onOpenLdl, importedBands, onImportConsumed }: Dashbo
       >
         {/* ── Header ─────────────────────────────────── */}
         <View style={styles.headerWrap}>
-          <View style={styles.headerTitleBlock}>
-            <Text style={styles.appTitle}>ACOUSTIC</Text>
-            <Text style={styles.appTitleAccent}>SHIELD</Text>
-            <Text style={styles.appSubtitle}>Medical DSP Remote Control</Text>
+          <View>
+            <View style={styles.wordmarkRow}>
+              <Text style={styles.appTitle}>
+                ACOUSTIC<Text style={styles.appTitleAccent}>SHIELD</Text>
+              </Text>
+              <Blink style={styles.cursor}>▍</Blink>
+            </View>
+            <Text style={styles.appSubtitle}>{'// remote console · adau1860 dsp'}</Text>
           </View>
           <TouchableOpacity
             style={styles.themeToggle}
             onPress={toggleTheme}
             activeOpacity={0.7}
+            accessibilityLabel="Toggle light or dark theme"
           >
-            <Text style={styles.themeToggleIcon}>{theme.dark ? '☀️' : '🌙'}</Text>
+            <Text style={styles.themeToggleIcon}>{theme.dark ? '◖' : '◗'}</Text>
           </TouchableOpacity>
         </View>
 
@@ -229,10 +236,7 @@ export function Dashboard({ onOpenLdl, importedBands, onImportConsumed }: Dashbo
 
         {/* ── Frequency Sweeper ───────────────────────── */}
         <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardLabel}>TARGET FREQUENCY</Text>
-            <Text style={styles.cardHint}>Pain trigger frequency</Text>
-          </View>
+          <SectionRule label="Target frequency" hint="pain trigger" />
 
           {/* ── Band selector ─────────────────────────── */}
           <ScrollView
@@ -312,10 +316,7 @@ export function Dashboard({ onOpenLdl, importedBands, onImportConsumed }: Dashbo
 
         {/* ── Q-Factor Slider ─────────────────────────── */}
         <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardLabel}>BAND WIDTH</Text>
-            <Text style={styles.cardHint}>Q-Factor</Text>
-          </View>
+          <SectionRule label="Band width" hint="q-factor" />
 
           <View style={styles.qValueRow}>
             <Text style={styles.qValue}>Q = {selectedBand.q.toFixed(1)}</Text>
@@ -347,10 +348,7 @@ export function Dashboard({ onOpenLdl, importedBands, onImportConsumed }: Dashbo
 
         {/* ── Dampening Depth Slider ──────────────────── */}
         <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardLabel}>DAMPENING</Text>
-            <Text style={styles.cardHint}>Reduction at target frequency</Text>
-          </View>
+          <SectionRule label="Dampening" hint="cut depth" />
 
           <View style={styles.qValueRow}>
             <Text style={styles.qValue}>
@@ -382,11 +380,14 @@ export function Dashboard({ onOpenLdl, importedBands, onImportConsumed }: Dashbo
 
         {/* ── Bypass Toggle ───────────────────────────── */}
         <View style={styles.card}>
+          <SectionRule
+            label="Bypass"
+            hint={bypass ? 'signal cut' : 'signal flowing'}
+          />
           <View style={styles.bypassRow}>
             <View>
-              <Text style={styles.cardLabel}>BYPASS FILTER</Text>
-              <Text style={styles.cardHint}>
-                {bypass ? 'DSP inactive — raw audio pass-through' : 'Filter active'}
+              <Text style={styles.cardBody}>
+                {bypass ? 'Raw audio pass-through' : 'Filter engaged'}
               </Text>
             </View>
             <View style={styles.bypassRight}>
@@ -406,11 +407,11 @@ export function Dashboard({ onOpenLdl, importedBands, onImportConsumed }: Dashbo
 
         {/* ── LDL Test Entry ──────────────────────────── */}
         <View style={styles.card}>
+          <SectionRule label="Hearing profile" hint="guided" />
           <View style={styles.bypassRow}>
             <View style={styles.ldlTextBlock}>
-              <Text style={styles.cardLabel}>HEARING PROFILE</Text>
-              <Text style={styles.cardHint}>
-                Find your uncomfortable frequencies with a guided test
+              <Text style={styles.cardBody}>
+                Find your uncomfortable frequencies
               </Text>
             </View>
             <TouchableOpacity
@@ -423,12 +424,16 @@ export function Dashboard({ onOpenLdl, importedBands, onImportConsumed }: Dashbo
           </View>
         </View>
 
-        {/* ── Payload Preview ─────────────────────────── */}
+        {/* ── TX Monitor ──────────────────────────────── */}
         <View style={styles.payloadCard}>
-          <Text style={styles.payloadLabel}>
-            {queuedCount > 0 && !isConnected ? 'LAST PAYLOAD — QUEUED' : 'LAST PAYLOAD'}
+          <SectionRule
+            label="TX monitor"
+            hint={queuedCount > 0 && !isConnected ? `${queuedCount} queued` : 'last frame'}
+          />
+          <Text style={styles.payloadText}>
+            <Text style={styles.payloadPrompt}>{'> '}</Text>
+            {payloadPreview}
           </Text>
-          <Text style={styles.payloadText}>{payloadPreview}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -451,40 +456,40 @@ function makeStyles(c: ColorPalette) {
     headerWrap: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      justifyContent: 'center',
-      marginBottom: 28,
-      position: 'relative',
+      justifyContent: 'space-between',
+      marginBottom: 24,
     },
-    headerTitleBlock: {
+    wordmarkRow: {
+      flexDirection: 'row',
       alignItems: 'center',
     },
     appTitle: {
-      fontSize: 32,
-      fontWeight: '900',
+      fontSize: 24,
+      fontWeight: '700',
+      fontFamily: MONO_FONT,
       color: c.textPrimary,
-      letterSpacing: 8,
+      letterSpacing: 1,
     },
     appTitleAccent: {
-      fontSize: 32,
-      fontWeight: '900',
       color: c.accent,
-      letterSpacing: 8,
-      marginTop: -6,
+    },
+    cursor: {
+      fontSize: 24,
+      fontFamily: MONO_FONT,
+      color: c.accent,
+      marginLeft: 2,
     },
     appSubtitle: {
       fontSize: 11,
+      fontFamily: MONO_FONT,
       color: c.textSecondary,
-      letterSpacing: 3,
-      marginTop: 6,
-      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      marginTop: 4,
     },
     themeToggle: {
-      position: 'absolute',
-      right: 0,
-      top: 4,
-      width: 38,
-      height: 38,
-      borderRadius: 19,
+      width: 44,
+      height: 44,
+      borderRadius: RADIUS,
       backgroundColor: c.toggleBg,
       borderWidth: 1,
       borderColor: c.toggleBorder,
@@ -492,34 +497,22 @@ function makeStyles(c: ColorPalette) {
       justifyContent: 'center',
     },
     themeToggleIcon: {
-      fontSize: 18,
+      fontSize: 16,
+      color: c.textSecondary,
     },
 
     // ── Cards
     card: {
       backgroundColor: c.cardBg,
-      borderRadius: 16,
+      borderRadius: RADIUS,
       borderWidth: 1,
       borderColor: c.border,
-      padding: 20,
-      marginBottom: 16,
-    },
-    cardHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'baseline',
+      padding: 18,
       marginBottom: 14,
     },
-    cardLabel: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: c.textSecondary,
-      letterSpacing: 2,
-    },
-    cardHint: {
-      fontSize: 11,
-      color: c.textSecondary,
-      opacity: 0.6,
+    cardBody: {
+      fontSize: 13,
+      color: c.textPrimary,
     },
 
     // ── Band selector
@@ -534,7 +527,7 @@ function makeStyles(c: ColorPalette) {
     bandChip: {
       flexDirection: 'row',
       alignItems: 'center',
-      borderRadius: 8,
+      borderRadius: RADIUS_SM,
       borderWidth: 1,
       borderColor: c.border,
       backgroundColor: 'transparent',
@@ -571,7 +564,7 @@ function makeStyles(c: ColorPalette) {
     bandAddBtn: {
       width: 32,
       height: 32,
-      borderRadius: 8,
+      borderRadius: RADIUS_SM,
       borderWidth: 1,
       borderColor: c.border,
       alignItems: 'center',
@@ -585,11 +578,11 @@ function makeStyles(c: ColorPalette) {
 
     // ── Frequency
     freqValue: {
-      fontSize: 52,
-      fontWeight: '800',
+      fontSize: 48,
+      fontWeight: '700',
       fontFamily: MONO_FONT,
-      color: c.textPrimary,
-      letterSpacing: 0,
+      color: c.accent,
+      letterSpacing: -1,
       textAlign: 'center',
       marginBottom: 8,
     },
@@ -603,7 +596,8 @@ function makeStyles(c: ColorPalette) {
       marginTop: 2,
     },
     rangeLabel: {
-      fontSize: 11,
+      fontSize: 10,
+      fontFamily: MONO_FONT,
       color: c.textSecondary,
       letterSpacing: 0.5,
     },
@@ -615,6 +609,7 @@ function makeStyles(c: ColorPalette) {
     },
     freqBadge: {
       fontSize: 10,
+      fontFamily: MONO_FONT,
       color: c.textSecondary,
       opacity: 0.5,
       letterSpacing: 0.5,
@@ -628,25 +623,27 @@ function makeStyles(c: ColorPalette) {
       marginBottom: 8,
     },
     qValue: {
-      fontSize: 36,
+      fontSize: 34,
       fontWeight: '700',
       fontFamily: MONO_FONT,
       color: c.textPrimary,
-      letterSpacing: 0,
+      letterSpacing: -0.5,
     },
     qDescBadge: {
       backgroundColor: c.qBadgeBg,
-      borderRadius: 8,
+      borderRadius: RADIUS_SM,
       borderWidth: 1,
       borderColor: c.border,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
     },
     qDescText: {
-      fontSize: 12,
+      fontSize: 11,
+      fontFamily: MONO_FONT,
       color: c.accent,
       fontWeight: '600',
       letterSpacing: 1,
+      textTransform: 'lowercase',
     },
     secondarySlider: {
       width: '100%',
@@ -666,6 +663,7 @@ function makeStyles(c: ColorPalette) {
     },
     bypassStatus: {
       fontSize: 11,
+      fontFamily: MONO_FONT,
       fontWeight: '700',
       letterSpacing: 1.5,
     },
@@ -677,37 +675,36 @@ function makeStyles(c: ColorPalette) {
     },
     ldlBtn: {
       backgroundColor: c.btnConnectBg,
-      borderRadius: 10,
-      paddingVertical: 10,
+      borderRadius: RADIUS_SM,
+      paddingVertical: 12,
       paddingHorizontal: 16,
     },
     ldlBtnText: {
       color: c.btnConnectText,
       fontSize: 12,
-      fontWeight: '800',
+      fontFamily: MONO_FONT,
+      fontWeight: '700',
       letterSpacing: 1.5,
     },
 
-    // ── Payload preview
+    // ── TX monitor
     payloadCard: {
       backgroundColor: c.cardBgDeep,
-      borderRadius: 12,
+      borderRadius: RADIUS,
       borderWidth: 1,
       borderColor: c.borderDeep,
       padding: 16,
       marginTop: 4,
     },
-    payloadLabel: {
-      fontSize: 9,
-      color: c.textSecondary,
-      letterSpacing: 2,
-      marginBottom: 8,
-    },
     payloadText: {
-      fontSize: 13,
+      fontSize: 12,
       fontFamily: MONO_FONT,
       color: c.payloadText,
       letterSpacing: 0.3,
+      lineHeight: 18,
+    },
+    payloadPrompt: {
+      color: c.textSecondary,
     },
   });
 }

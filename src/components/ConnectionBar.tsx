@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useBle } from '../context/BleContext';
 import { useTheme } from '../context/ThemeContext';
-import { ColorPalette } from '../constants/theme';
+import { ColorPalette, MONO_FONT, RADIUS, RADIUS_SM } from '../constants/theme';
 import { ConnectionStatus } from '../types';
 
 function statusConfig(
@@ -74,37 +74,41 @@ function makeStyles(c: ColorPalette) {
       alignItems: 'center',
       justifyContent: 'space-between',
       backgroundColor: c.cardBg,
-      borderRadius: 14,
+      borderRadius: RADIUS,
       borderWidth: 1,
       borderColor: c.border,
-      paddingHorizontal: 20,
-      paddingVertical: 16,
-      marginBottom: 20,
+      paddingHorizontal: 16,
+      paddingVertical: 13,
+      marginBottom: 16,
     },
     statusRow: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 10,
     },
+    // Square status LED, like a panel indicator
     dot: {
-      width: 10,
-      height: 10,
-      borderRadius: 5,
+      width: 8,
+      height: 8,
+      borderRadius: 1,
     },
     statusLabel: {
-      fontSize: 15,
-      fontWeight: '600',
-      letterSpacing: 0.5,
+      fontSize: 12,
+      fontFamily: MONO_FONT,
+      fontWeight: '700',
+      letterSpacing: 1.5,
+      textTransform: 'uppercase',
     },
     queuedLabel: {
-      fontSize: 11,
+      fontSize: 10,
+      fontFamily: MONO_FONT,
       color: c.textSecondary,
       letterSpacing: 0.5,
     },
     button: {
-      paddingHorizontal: 18,
-      paddingVertical: 9,
-      borderRadius: 8,
+      paddingHorizontal: 16,
+      paddingVertical: 11,
+      borderRadius: RADIUS_SM,
     },
     buttonConnect: {
       backgroundColor: c.btnConnectBg,
@@ -115,10 +119,12 @@ function makeStyles(c: ColorPalette) {
       borderColor: c.btnDisconnectBorder,
     },
     buttonText: {
-      fontSize: 13,
+      fontSize: 12,
+      fontFamily: MONO_FONT,
       fontWeight: '700',
       color: c.btnConnectText,
-      letterSpacing: 0.5,
+      letterSpacing: 1,
+      textTransform: 'uppercase',
     },
     buttonTextDisconnect: {
       color: c.btnDisconnectBorder,

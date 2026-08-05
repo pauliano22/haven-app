@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { ConnectionBar } from '../components/ConnectionBar';
+import { MONO_FONT } from '../constants/theme';
 import { LdlIntro } from '../components/ldl/LdlIntro';
 import { LdlResults, SENSITIVE_LDL_THRESHOLD_DB } from '../components/ldl/LdlResults';
 import { LdlToneStep } from '../components/ldl/LdlToneStep';
@@ -194,11 +195,13 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   backLink: {
-    fontSize: 14,
+    fontSize: 13,
+    fontFamily: MONO_FONT,
     fontWeight: '700',
   },
   headerTitle: {
     fontSize: 12,
+    fontFamily: MONO_FONT,
     fontWeight: '700',
     letterSpacing: 3,
   },
