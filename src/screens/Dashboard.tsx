@@ -1,6 +1,6 @@
 import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Platform,
   SafeAreaView,
@@ -17,6 +17,7 @@ import { VisualizerCurve } from '../components/VisualizerCurve';
 import { useBle } from '../context/BleContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDebouncedCallback } from '../hooks/useDebounce';
+import { FilterBand, WireFilterBand } from '../types';
 
 const F0_MIN = 200;
 const F0_MAX = 8000;
@@ -24,85 +25,134 @@ const F0_DEFAULT = 4500;
 const Q_MIN = 1.0;
 const Q_MAX = 20.0;
 const Q_DEFAULT = 10.0;
+// Matches MAX_BANDS in the firmware — payloads with more bands are truncated on-device.
+const MAX_BANDS = 5;
 
 function formatFrequency(hz: number): string {
   if (hz >= 1000) {
-    // Always render as X.XX kHz so the string length is constant → no layout jitter
     return `${(hz / 1000).toFixed(2)} kHz`;
   }
-  return `${String(Math.round(hz)).padStart(4, ' ')} Hz`; // figure-space pad
+  return `${String(Math.round(hz)).padStart(4, ' ')} Hz`;
 }
 
-// Haptics silently no-op on web / simulator
+function formatChip(hz: number): string {
+  return hz >= 1000 ? `${(hz / 1000).toFixed(1)}k` : `${Math.round(hz)}`;
+}
+
 function haptic(style: Haptics.ImpactFeedbackStyle) {
   if (Platform.OS !== 'web') {
     Haptics.impactAsync(style).catch(() => {});
   }
 }
 
+let _nextId = 1;
+function makeId(): string {
+  return String(_nextId++);
+}
+
+// Strip UI-only fields and use the uppercase Q key the firmware expects.
+function toWireBands(bands: FilterBand[]): WireFilterBand[] {
+  return bands.map(b => ({ f0: b.f0, Q: +b.q.toFixed(1) }));
+}
+
 export function Dashboard() {
-  const { status, sendPayload } = useBle();
+  const { status, queuedCount, sendPayload } = useBle();
   const { theme, toggleTheme } = useTheme();
   const c = theme.colors;
   const styles = useMemo(() => makeStyles(c), [c]);
 
+  // Controls stay usable while disconnected — payloads queue in the
+  // BleConnectionManager and flush automatically on reconnect.
   const isConnected = status === 'connected';
-  const [f0, setF0] = useState(F0_DEFAULT);
-  const [q, setQ] = useState(Q_DEFAULT);
+
+  const [bands, setBands] = useState<FilterBand[]>(() => {
+    const id = makeId();
+    return [{ id, f0: F0_DEFAULT, q: Q_DEFAULT }];
+  });
+  const [selectedId, setSelectedId] = useState<string>(bands[0].id);
   const [bypass, setBypass] = useState(false);
 
-  // Track last 100 Hz bucket to fire a haptic tick on each boundary crossing
+  const selectedBand = bands.find(b => b.id === selectedId) ?? bands[0];
   const lastBucketRef = useRef(Math.floor(F0_DEFAULT / 100));
 
+  useEffect(() => {
+    lastBucketRef.current = Math.floor(selectedBand.f0 / 100);
+  }, [selectedId]); // intentionally omit selectedBand.f0 — only reset on band switch
+
   const debouncedSendFilter = useDebouncedCallback(
-    (nextF0: number, nextQ: number) => {
-      sendPayload({ type: 'FILTER_UPDATE', f0: Math.round(nextF0), Q: nextQ });
+    (nextBands: FilterBand[]) => {
+      sendPayload({ type: 'MULTI_FILTER', bands: toWireBands(nextBands) });
     },
     100,
   );
 
+  const addBand = useCallback(() => {
+    if (bands.length >= MAX_BANDS) return;
+    const id = makeId();
+    const newBand: FilterBand = { id, f0: F0_DEFAULT, q: Q_DEFAULT };
+    setBands(prev => [...prev, newBand]);
+    setSelectedId(id);
+  }, [bands.length]);
+
+  const removeBand = useCallback(
+    (id: string) => {
+      if (bands.length <= 1) return;
+      const next = bands.filter(b => b.id !== id);
+      setBands(next);
+      if (selectedId === id) setSelectedId(next[0].id);
+    },
+    [bands, selectedId],
+  );
+
   const handleF0Change = useCallback(
     (value: number) => {
-      setF0(value);
+      const nextBands = bands.map(b =>
+        b.id === selectedId ? { ...b, f0: Math.round(value) } : b,
+      );
+      setBands(nextBands);
 
-      // Fire a light haptic tick every 100 Hz boundary
       const bucket = Math.floor(value / 100);
       if (bucket !== lastBucketRef.current) {
         lastBucketRef.current = bucket;
         haptic(Haptics.ImpactFeedbackStyle.Light);
       }
 
-      if (isConnected && !bypass) debouncedSendFilter(value, q);
+      if (!bypass) debouncedSendFilter(nextBands);
     },
-    [isConnected, bypass, q, debouncedSendFilter],
+    [bands, selectedId, bypass, debouncedSendFilter],
   );
 
   const handleQChange = useCallback(
     (value: number) => {
       const rounded = Math.round(value * 10) / 10;
-      setQ(rounded);
-      if (isConnected && !bypass) debouncedSendFilter(f0, rounded);
+      const nextBands = bands.map(b =>
+        b.id === selectedId ? { ...b, q: rounded } : b,
+      );
+      setBands(nextBands);
+      if (!bypass) debouncedSendFilter(nextBands);
     },
-    [isConnected, bypass, f0, debouncedSendFilter],
+    [bands, selectedId, bypass, debouncedSendFilter],
   );
 
   const handleBypassToggle = useCallback(
     (value: boolean) => {
       setBypass(value);
       haptic(Haptics.ImpactFeedbackStyle.Medium);
-      if (!isConnected) return;
       if (value) {
         sendPayload({ type: 'BYPASS', enabled: true });
       } else {
-        sendPayload({ type: 'FILTER_UPDATE', f0: Math.round(f0), Q: q });
+        sendPayload({ type: 'MULTI_FILTER', bands: toWireBands(bands) });
       }
     },
-    [isConnected, f0, q, sendPayload],
+    [bands, sendPayload],
   );
 
-  const controlsDisabled = !isConnected || bypass;
   const sliderTrack = bypass ? c.sliderDisabled : c.accent;
   const sliderThumbQ = bypass ? c.sliderDisabled : c.accentSecondary;
+
+  const payloadPreview = bypass
+    ? `{"type":"BYPASS","enabled":true}`
+    : `{"type":"MULTI_FILTER","bands":${JSON.stringify(toWireBands(bands))}}`;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -130,28 +180,75 @@ export function Dashboard() {
         <ConnectionBar />
 
         {/* ── EQ Visualizer ───────────────────────────── */}
-        <VisualizerCurve f0={f0} q={q} bypass={bypass} />
+        <VisualizerCurve bands={bands} selectedId={selectedId} bypass={bypass} />
 
         {/* ── Frequency Sweeper ───────────────────────── */}
-        <View style={[styles.card, controlsDisabled && !bypass && styles.cardDisabled]}>
+        <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardLabel}>TARGET FREQUENCY</Text>
             <Text style={styles.cardHint}>Pain trigger frequency</Text>
           </View>
 
-          <Text style={styles.freqValue}>{formatFrequency(f0)}</Text>
+          {/* ── Band selector ─────────────────────────── */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.bandRow}
+            contentContainerStyle={styles.bandRowContent}
+          >
+            {bands.map(band => (
+              <View
+                key={band.id}
+                style={[styles.bandChip, band.id === selectedId && styles.bandChipActive]}
+              >
+                <TouchableOpacity
+                  onPress={() => setSelectedId(band.id)}
+                  style={styles.bandChipLabel}
+                >
+                  <Text
+                    style={[
+                      styles.bandChipText,
+                      band.id === selectedId && styles.bandChipTextActive,
+                    ]}
+                  >
+                    {formatChip(band.f0)}
+                  </Text>
+                </TouchableOpacity>
+                {bands.length > 1 && (
+                  <TouchableOpacity
+                    onPress={() => removeBand(band.id)}
+                    style={styles.bandChipRemove}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                  >
+                    <Text style={styles.bandChipRemoveText}>×</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ))}
+            {bands.length < MAX_BANDS && (
+              <TouchableOpacity
+                style={styles.bandAddBtn}
+                onPress={addBand}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.bandAddText}>＋</Text>
+              </TouchableOpacity>
+            )}
+          </ScrollView>
+
+          <Text style={styles.freqValue}>{formatFrequency(selectedBand.f0)}</Text>
 
           <Slider
             style={styles.mainSlider}
             minimumValue={F0_MIN}
             maximumValue={F0_MAX}
-            value={f0}
+            value={selectedBand.f0}
             step={1}
             onValueChange={handleF0Change}
             minimumTrackTintColor={sliderTrack}
             maximumTrackTintColor={c.sliderMax}
             thumbTintColor={sliderTrack}
-            disabled={bypass || !isConnected}
+            disabled={bypass}
           />
 
           <View style={styles.rangeRow}>
@@ -169,17 +266,17 @@ export function Dashboard() {
         </View>
 
         {/* ── Q-Factor Slider ─────────────────────────── */}
-        <View style={[styles.card, controlsDisabled && !bypass && styles.cardDisabled]}>
+        <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardLabel}>NOTCH WIDTH</Text>
             <Text style={styles.cardHint}>Q-Factor</Text>
           </View>
 
           <View style={styles.qValueRow}>
-            <Text style={styles.qValue}>Q = {q.toFixed(1)}</Text>
+            <Text style={styles.qValue}>Q = {selectedBand.q.toFixed(1)}</Text>
             <View style={styles.qDescBadge}>
               <Text style={styles.qDescText}>
-                {q <= 5 ? 'Wide Band' : q <= 12 ? 'Moderate' : 'Surgical'}
+                {selectedBand.q <= 5 ? 'Wide Band' : selectedBand.q <= 12 ? 'Moderate' : 'Surgical'}
               </Text>
             </View>
           </View>
@@ -188,13 +285,13 @@ export function Dashboard() {
             style={styles.secondarySlider}
             minimumValue={Q_MIN}
             maximumValue={Q_MAX}
-            value={q}
+            value={selectedBand.q}
             step={0.1}
             onValueChange={handleQChange}
             minimumTrackTintColor={sliderTrack}
             maximumTrackTintColor={c.sliderMax}
             thumbTintColor={sliderThumbQ}
-            disabled={bypass || !isConnected}
+            disabled={bypass}
           />
 
           <View style={styles.rangeRow}>
@@ -222,7 +319,6 @@ export function Dashboard() {
                 trackColor={{ false: c.bypassOn, true: c.bypassOff }}
                 thumbColor="#FFFFFF"
                 ios_backgroundColor={c.bypassOn}
-                disabled={!isConnected}
               />
             </View>
           </View>
@@ -230,12 +326,10 @@ export function Dashboard() {
 
         {/* ── Payload Preview ─────────────────────────── */}
         <View style={styles.payloadCard}>
-          <Text style={styles.payloadLabel}>LAST PAYLOAD</Text>
-          <Text style={styles.payloadText}>
-            {bypass
-              ? `{"type":"BYPASS","enabled":true}`
-              : `{"type":"FILTER_UPDATE","f0":${Math.round(f0)},"Q":${q.toFixed(1)}}`}
+          <Text style={styles.payloadLabel}>
+            {queuedCount > 0 && !isConnected ? 'LAST PAYLOAD — QUEUED' : 'LAST PAYLOAD'}
           </Text>
+          <Text style={styles.payloadText}>{payloadPreview}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -311,9 +405,6 @@ function makeStyles(c: ColorPalette) {
       padding: 20,
       marginBottom: 16,
     },
-    cardDisabled: {
-      opacity: 0.45,
-    },
     cardHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -332,7 +423,68 @@ function makeStyles(c: ColorPalette) {
       opacity: 0.6,
     },
 
-    // ── Frequency — monospaced so digits don't shift the layout
+    // ── Band selector
+    bandRow: {
+      marginBottom: 14,
+    },
+    bandRowContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    bandChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: c.border,
+      backgroundColor: 'transparent',
+    },
+    bandChipActive: {
+      borderColor: c.accent,
+      backgroundColor: c.qBadgeBg,
+    },
+    bandChipLabel: {
+      paddingVertical: 6,
+      paddingLeft: 10,
+      paddingRight: 6,
+    },
+    bandChipText: {
+      fontSize: 12,
+      fontFamily: MONO_FONT,
+      fontWeight: '600',
+      color: c.textSecondary,
+      letterSpacing: 0.5,
+    },
+    bandChipTextActive: {
+      color: c.accent,
+    },
+    bandChipRemove: {
+      paddingVertical: 6,
+      paddingRight: 8,
+      paddingLeft: 2,
+    },
+    bandChipRemoveText: {
+      fontSize: 14,
+      color: c.textSecondary,
+      lineHeight: 16,
+    },
+    bandAddBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: c.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    bandAddText: {
+      fontSize: 16,
+      color: c.textSecondary,
+      lineHeight: 18,
+    },
+
+    // ── Frequency
     freqValue: {
       fontSize: 52,
       fontWeight: '800',
@@ -369,7 +521,7 @@ function makeStyles(c: ColorPalette) {
       letterSpacing: 0.5,
     },
 
-    // ── Q Factor — monospaced so Q = X.X doesn't shift
+    // ── Q Factor
     qValueRow: {
       flexDirection: 'row',
       alignItems: 'center',

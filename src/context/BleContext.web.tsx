@@ -16,7 +16,7 @@ export function BleProvider({ children }: { children: React.ReactNode }) {
   const sendPayload = useCallback(async (_payload: DspPayload) => {}, []);
 
   return (
-    <BleContext.Provider value={{ status, connect, disconnect, sendPayload }}>
+    <BleContext.Provider value={{ status, queuedCount: 0, connect, disconnect, sendPayload }}>
       {children}
     </BleContext.Provider>
   );

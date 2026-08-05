@@ -10,43 +10,57 @@ function statusConfig(
   c: ColorPalette,
 ): { label: string; color: string } {
   return {
-    idle:         { label: 'Disconnected',  color: c.statusIdle },
-    scanning:     { label: 'Scanning...',   color: c.statusScanning },
-    connecting:   { label: 'Connecting...', color: c.statusScanning },
-    connected:    { label: 'Connected',     color: c.statusConnected },
-    disconnected: { label: 'Disconnected',  color: c.statusDisconnected },
+    idle:         { label: 'Disconnected',    color: c.statusIdle },
+    scanning:     { label: 'Scanning...',     color: c.statusScanning },
+    connecting:   { label: 'Connecting...',   color: c.statusScanning },
+    connected:    { label: 'Connected',       color: c.statusConnected },
+    reconnecting: { label: 'Reconnecting...', color: c.statusScanning },
+    disconnected: { label: 'Disconnected',    color: c.statusDisconnected },
   }[status];
 }
 
 export function ConnectionBar() {
-  const { status, connect, disconnect } = useBle();
+  const { status, queuedCount, connect, disconnect } = useBle();
   const { theme } = useTheme();
   const c = theme.colors;
 
   const styles = useMemo(() => makeStyles(c), [c]);
   const { label, color } = statusConfig(status, c);
-  const isScanning = status === 'scanning' || status === 'connecting';
+  const isBusy = status === 'scanning' || status === 'connecting';
+  const isReconnecting = status === 'reconnecting';
   const isConnected = status === 'connected';
+  const showTeardown = isConnected || isReconnecting;
 
   return (
     <View style={styles.container}>
       <View style={styles.statusRow}>
-        {isScanning ? (
+        {isBusy || isReconnecting ? (
           <ActivityIndicator size="small" color={color} style={styles.dot} />
         ) : (
           <View style={[styles.dot, { backgroundColor: color }]} />
         )}
         <Text style={[styles.statusLabel, { color }]}>{label}</Text>
+        {queuedCount > 0 && !isConnected && (
+          <Text style={styles.queuedLabel}>
+            {queuedCount} queued
+          </Text>
+        )}
       </View>
 
       <TouchableOpacity
-        style={[styles.button, isConnected ? styles.buttonDisconnect : styles.buttonConnect]}
-        onPress={isConnected ? disconnect : connect}
-        disabled={isScanning}
+        style={[styles.button, showTeardown ? styles.buttonDisconnect : styles.buttonConnect]}
+        onPress={showTeardown ? disconnect : connect}
+        disabled={isBusy}
         activeOpacity={0.75}
       >
-        <Text style={[styles.buttonText, isConnected && styles.buttonTextDisconnect]}>
-          {isConnected ? 'Disconnect' : isScanning ? 'Scanning...' : 'Connect'}
+        <Text style={[styles.buttonText, showTeardown && styles.buttonTextDisconnect]}>
+          {isConnected
+            ? 'Disconnect'
+            : isReconnecting
+              ? 'Cancel'
+              : isBusy
+                ? 'Scanning...'
+                : 'Connect'}
         </Text>
       </TouchableOpacity>
     </View>
@@ -80,6 +94,11 @@ function makeStyles(c: ColorPalette) {
     statusLabel: {
       fontSize: 15,
       fontWeight: '600',
+      letterSpacing: 0.5,
+    },
+    queuedLabel: {
+      fontSize: 11,
+      color: c.textSecondary,
       letterSpacing: 0.5,
     },
     button: {

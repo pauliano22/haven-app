@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '../context/ThemeContext';
+import { FilterBand } from '../types';
 
 const F_MIN = 200;
 const F_MAX = 8000;
@@ -15,55 +16,65 @@ function freqToX(f: number, width: number): number {
   return (Math.log(f / F_MIN) / Math.log(F_MAX / F_MIN)) * width;
 }
 
-interface CurveData {
-  curvePath: string;
-  fillPath: string;
-  baseline: number;
+interface BandMarker {
+  id: string;
   notchX: number;
   notchY: number;
 }
 
-function buildCurve(width: number, f0: number, q: number, dipScale: number): CurveData {
+interface CurveData {
+  curvePath: string;
+  fillPath: string;
+  baseline: number;
+  bandMarkers: BandMarker[];
+}
+
+function buildCurve(width: number, bands: FilterBand[], dipScale: number): CurveData {
   const baseline = DRAW_H * 0.28;
   const maxDip = DRAW_H * 0.66;
-  // sigma in octaves — higher Q = narrower notch
-  const sigmaOctaves = 1 / (q * 1.25);
 
   const pts: [number, number][] = [];
   for (let i = 0; i <= SAMPLES; i++) {
     const t = i / SAMPLES;
     const f = F_MIN * Math.pow(F_MAX / F_MIN, t);
     const x = t * width;
-    // Gaussian in log-frequency space → perfectly symmetric notch on log axis
-    const logRatio = Math.log2(f / f0);
-    const dip = Math.exp(-0.5 * Math.pow(logRatio / sigmaOctaves, 2)) * dipScale;
-    pts.push([x, baseline + dip * maxDip]);
+    // Composite: sum individual band dips, clamped to 1
+    let totalDip = 0;
+    for (const band of bands) {
+      const sigmaOctaves = 1 / (band.q * 1.25);
+      const logRatio = Math.log2(f / band.f0);
+      const dip = Math.exp(-0.5 * Math.pow(logRatio / sigmaOctaves, 2)) * dipScale;
+      totalDip = Math.min(1, totalDip + dip);
+    }
+    pts.push([x, baseline + totalDip * maxDip]);
   }
 
   const curvePath = pts
     .map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`)
     .join(' ');
 
-  // Closed path from baseline, along curve, back to baseline — fills the notch area
   const fillPath = [
     `M0,${baseline.toFixed(1)}`,
     ...pts.map(([x, y]) => `L${x.toFixed(1)},${y.toFixed(1)}`),
     `L${width.toFixed(1)},${baseline.toFixed(1)} Z`,
   ].join(' ');
 
-  const notchX = freqToX(f0, width);
-  const notchY = baseline + maxDip * dipScale;
+  const bandMarkers: BandMarker[] = bands.map(band => ({
+    id: band.id,
+    notchX: freqToX(band.f0, width),
+    notchY: baseline + maxDip * dipScale,
+  }));
 
-  return { curvePath, fillPath, baseline, notchX, notchY };
+  return { curvePath, fillPath, baseline, bandMarkers };
 }
 
 interface Props {
-  f0: number;
-  q: number;
+  bands: FilterBand[];
+  selectedId: string;
   bypass: boolean;
 }
 
-export function VisualizerCurve({ f0, q, bypass }: Props) {
+export function VisualizerCurve({ bands, selectedId, bypass }: Props) {
   const { theme } = useTheme();
   const c = theme.colors;
   const [svgWidth, setSvgWidth] = useState(0);
@@ -72,8 +83,8 @@ export function VisualizerCurve({ f0, q, bypass }: Props) {
 
   const curve = useMemo<CurveData | null>(() => {
     if (svgWidth < 10) return null;
-    return buildCurve(svgWidth, f0, q, bypass ? 0 : 1);
-  }, [svgWidth, f0, q, bypass]);
+    return buildCurve(svgWidth, bands, bypass ? 0 : 1);
+  }, [svgWidth, bands, bypass]);
 
   return (
     <View style={[styles.card, { backgroundColor: c.cardBg, borderColor: c.border }]}>
@@ -109,7 +120,7 @@ export function VisualizerCurve({ f0, q, bypass }: Props) {
               strokeOpacity={0.25}
             />
 
-            {/* Notch fill — very subtle teal/amber wash */}
+            {/* Notch fill */}
             <Path d={curve.fillPath} fill={accent} fillOpacity={0.07} />
 
             {/* Outer glow */}
@@ -138,27 +149,50 @@ export function VisualizerCurve({ f0, q, bypass }: Props) {
               strokeWidth={1.75}
             />
 
-            {/* f0 dashed vertical marker */}
-            {!bypass && (
-              <Line
-                x1={curve.notchX.toFixed(1)} y1="0"
-                x2={curve.notchX.toFixed(1)} y2={DRAW_H}
-                stroke={accent}
-                strokeWidth={0.75}
-                strokeDasharray="3,4"
-                strokeOpacity={0.4}
-              />
-            )}
+            {/* Per-band markers (unselected first so selected renders on top) */}
+            {!bypass && curve.bandMarkers
+              .filter(m => m.id !== selectedId)
+              .map(m => (
+                <React.Fragment key={m.id}>
+                  <Line
+                    x1={m.notchX.toFixed(1)} y1="0"
+                    x2={m.notchX.toFixed(1)} y2={DRAW_H}
+                    stroke={accent}
+                    strokeWidth={0.6}
+                    strokeDasharray="3,4"
+                    strokeOpacity={0.2}
+                  />
+                  <Circle
+                    cx={m.notchX.toFixed(1)}
+                    cy={m.notchY.toFixed(1)}
+                    r={2.5}
+                    fill={accent}
+                    fillOpacity={0.4}
+                  />
+                </React.Fragment>
+              ))}
 
-            {/* Notch bottom dot */}
-            {!bypass && (
-              <Circle
-                cx={curve.notchX.toFixed(1)}
-                cy={curve.notchY.toFixed(1)}
-                r={3.5}
-                fill={accent}
-              />
-            )}
+            {/* Selected band marker — brighter */}
+            {!bypass && curve.bandMarkers
+              .filter(m => m.id === selectedId)
+              .map(m => (
+                <React.Fragment key={m.id}>
+                  <Line
+                    x1={m.notchX.toFixed(1)} y1="0"
+                    x2={m.notchX.toFixed(1)} y2={DRAW_H}
+                    stroke={accent}
+                    strokeWidth={0.75}
+                    strokeDasharray="3,4"
+                    strokeOpacity={0.4}
+                  />
+                  <Circle
+                    cx={m.notchX.toFixed(1)}
+                    cy={m.notchY.toFixed(1)}
+                    r={3.5}
+                    fill={accent}
+                  />
+                </React.Fragment>
+              ))}
 
             {/* Frequency axis labels */}
             {FREQ_MARKERS.map(f => (
