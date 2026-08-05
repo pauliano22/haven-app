@@ -1,18 +1,20 @@
 # Roadmap & status
 
-Last updated: 2026-08-05. `feature/ldl-dampening` is merged into master.
-The **Sanctuary/Evergreen redesign lives on branch `design/sanctuary`**,
-not yet merged — it replaces the single-dashboard "Lamplight Terminal" look
-with a three-tab (Home/Tune/Hearing) wellness-brand direction. See
-[design-system.md](design-system.md) for why. Merge that branch once you're
-happy with it in a real device build.
+Last updated: 2026-08-05. `feature/ldl-dampening` and `design/sanctuary` are
+both merged into master. The **Sanctuary/Evergreen** redesign (three-tab
+Home/Tune/Hearing structure, Evergreen/Ivory theme) is the current app —
+it replaced the single-dashboard "Lamplight Terminal" look. See
+[design-system.md](design-system.md) for why that earlier system was
+rejected. **Not yet verified on a real device** — has only been checked in
+the web preview; confirm on an actual iPhone (see app-guide.md's Expo Go /
+dev-client build section) before considering it done.
 
 ## Done
 
 - **App**: multi-band dampening (≤5 bands, f0/Q/atten), robust BLE layer
   (auto-reconnect, offline queue, MTU 247), LDL guided test with hard safety
-  limits, rename to Haven. On `design/sanctuary`: full visual + IA redesign —
-  Home/Tune/Hearing tabs, Evergreen/Ivory theme, shared `FilterContext`.
+  limits, rename to Haven, full visual + IA redesign — Home/Tune/Hearing
+  tabs, Evergreen/Ivory theme, shared `FilterContext`.
 - **Firmware scaffold** (`nrf52_haven_fw`): NUS peripheral advertising as
   `Haven`, newline framing, host-tested JSON parser with clamps, RBJ
   notch/peaking-cut coefficient math ported from the validated Teensy
@@ -34,8 +36,9 @@ happy with it in a real device build.
 
 ## Next — app
 
-- Merge `design/sanctuary` once verified on a real device build (see
-  app-guide.md's Expo Go section — needs a dev-client build, not plain Expo Go).
+- Verify the redesign on a real iPhone via a dev-client build (see
+  app-guide.md — plain Expo Go won't work, `react-native-ble-plx` needs a
+  custom build).
 - Subscribe to NUS TX for device→app acks; surface "applied"/error state
   somewhere in the new UI (the old TX monitor was intentionally removed as
   too engineering-facing — replace with a quiet toast or Home-screen state,
