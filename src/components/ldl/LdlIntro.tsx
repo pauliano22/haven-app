@@ -45,7 +45,7 @@ export function LdlIntro({ connected, onStart }: Props) {
 
       {!connected && (
         <Text style={[styles.warn, { color: c.statusDisconnected }]}>
-          Connect to your AcousticShield device to begin.
+          Connect to your Haven device to begin.
         </Text>
       )}
 

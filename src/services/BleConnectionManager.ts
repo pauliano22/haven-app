@@ -164,7 +164,7 @@ export class BleConnectionManager {
     const granted = await requestBlePermissions().catch(() => false);
     if (gen !== this.generation) return;
     if (!granted) {
-      this.emitError('permissions', true, 'Bluetooth permissions are required to connect to AcousticShield.');
+      this.emitError('permissions', true, 'Bluetooth permissions are required to connect to Haven.');
       return;
     }
 

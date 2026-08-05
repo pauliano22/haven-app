@@ -1,21 +1,21 @@
 {
   "expo": {
-    "name": "AcousticShield",
-    "slug": "acoustic-shield",
+    "name": "Haven",
+    "slug": "haven",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.acousticshield.app",
+      "bundleIdentifier": "com.haven.app",
       "infoPlist": {
-        "NSBluetoothAlwaysUsageDescription": "AcousticShield requires Bluetooth to connect to the DSP hardware device.",
-        "NSBluetoothPeripheralUsageDescription": "AcousticShield requires Bluetooth to connect to the DSP hardware device."
+        "NSBluetoothAlwaysUsageDescription": "Haven requires Bluetooth to connect to the DSP hardware device.",
+        "NSBluetoothPeripheralUsageDescription": "Haven requires Bluetooth to connect to the DSP hardware device."
       }
     },
     "android": {
-      "package": "com.acousticshield.app",
+      "package": "com.haven.app",
       "adaptiveIcon": {
         "backgroundColor": "#0D1B2A",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -41,7 +41,7 @@
         {
           "isBackgroundEnabled": false,
           "modes": ["peripheral", "central"],
-          "bluetoothAlwaysPermission": "AcousticShield requires Bluetooth to connect to the DSP hardware device."
+          "bluetoothAlwaysPermission": "Haven requires Bluetooth to connect to the DSP hardware device."
         }
       ],
       [

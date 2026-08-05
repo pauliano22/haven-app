@@ -1,4 +1,4 @@
-export const DEVICE_NAME = 'AcousticShield';
+export const DEVICE_NAME = 'Haven';
 
 // Nordic UART Service
 export const UART_SERVICE_UUID = '6E400001-B5A3-F393-E0A9-E50E24DCCA9E';

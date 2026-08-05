@@ -211,9 +211,7 @@ export function Dashboard({ onOpenLdl, importedBands, onImportConsumed }: Dashbo
         <View style={styles.headerWrap}>
           <View>
             <View style={styles.wordmarkRow}>
-              <Text style={styles.appTitle}>
-                ACOUSTIC<Text style={styles.appTitleAccent}>SHIELD</Text>
-              </Text>
+              <Text style={styles.appTitle}>HAVEN</Text>
               <Blink style={styles.cursor}>▍</Blink>
             </View>
             <Text style={styles.appSubtitle}>{'// remote console · adau1860 dsp'}</Text>
@@ -469,9 +467,6 @@ function makeStyles(c: ColorPalette) {
       fontFamily: MONO_FONT,
       color: c.textPrimary,
       letterSpacing: 1,
-    },
-    appTitleAccent: {
-      color: c.accent,
     },
     cursor: {
       fontSize: 24,

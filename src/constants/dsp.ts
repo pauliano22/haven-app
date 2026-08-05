@@ -1,5 +1,5 @@
 // Shared DSP parameter ranges — must stay in sync with the firmware's
-// protocol.h clamps (nrf52_acousticshield_fw).
+// protocol.h clamps (nrf52_haven_fw).
 
 export const F0_MIN = 200;
 export const F0_MAX = 8000;
