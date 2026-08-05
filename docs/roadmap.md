@@ -1,13 +1,18 @@
 # Roadmap & status
 
-Last updated: 2026-08-05 (post-merge of `feature/ldl-dampening` into master).
+Last updated: 2026-08-05. `feature/ldl-dampening` is merged into master.
+The **Sanctuary/Evergreen redesign lives on branch `design/sanctuary`**,
+not yet merged — it replaces the single-dashboard "Lamplight Terminal" look
+with a three-tab (Home/Tune/Hearing) wellness-brand direction. See
+[design-system.md](design-system.md) for why. Merge that branch once you're
+happy with it in a real device build.
 
 ## Done
 
-- **App**: multi-band dampening dashboard (≤5 bands, f0/Q/atten sliders,
-  visualizer, bypass), robust BLE layer (auto-reconnect, offline queue,
-  MTU 247), LDL guided test with hard safety limits, Lamplight Terminal
-  design system in dark + light, web preview phone frame, rename to Haven.
+- **App**: multi-band dampening (≤5 bands, f0/Q/atten), robust BLE layer
+  (auto-reconnect, offline queue, MTU 247), LDL guided test with hard safety
+  limits, rename to Haven. On `design/sanctuary`: full visual + IA redesign —
+  Home/Tune/Hearing tabs, Evergreen/Ivory theme, shared `FilterContext`.
 - **Firmware scaffold** (`nrf52_haven_fw`): NUS peripheral advertising as
   `Haven`, newline framing, host-tested JSON parser with clamps, RBJ
   notch/peaking-cut coefficient math ported from the validated Teensy
@@ -29,8 +34,12 @@ Last updated: 2026-08-05 (post-merge of `feature/ldl-dampening` into master).
 
 ## Next — app
 
-- Subscribe to NUS TX for device→app acks; surface "applied" state in the TX
-  monitor instead of assuming success.
+- Merge `design/sanctuary` once verified on a real device build (see
+  app-guide.md's Expo Go section — needs a dev-client build, not plain Expo Go).
+- Subscribe to NUS TX for device→app acks; surface "applied"/error state
+  somewhere in the new UI (the old TX monitor was intentionally removed as
+  too engineering-facing — replace with a quiet toast or Home-screen state,
+  not a JSON dump).
 - Persist bands/presets across launches (AsyncStorage) and store LDL results
   history.
 - Calibration story: `level_db` is currently nominal — map commanded dB to
