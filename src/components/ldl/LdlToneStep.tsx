@@ -1,6 +1,14 @@
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { MONO_FONT, RADIUS, RADIUS_SM } from '../../constants/theme';
+import React, { useEffect, useRef } from 'react';
+import {
+  Animated,
+  Easing,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
+import { MONO_FONT, RADIUS, RADIUS_SM, SANS_FONT } from '../../constants/theme';
 import { LDL_START_LEVEL_DB, MAX_TONE_LEVEL_DB } from '../../constants/safety';
 import { useTheme } from '../../context/ThemeContext';
 import { ToneState } from '../../hooks/useLdlTone';
@@ -41,6 +49,27 @@ export function LdlToneStep({
   const range = MAX_TONE_LEVEL_DB - LDL_START_LEVEL_DB;
   const progress = Math.max(0, Math.min(1, (levelDb - LDL_START_LEVEL_DB) / range));
 
+  // The meter glides between ramp steps instead of jumping — the rise should
+  // feel as slow and predictable as it actually is.
+  const reduceMotion = useReducedMotion();
+  const fill = useRef(new Animated.Value(progress)).current;
+  useEffect(() => {
+    if (reduceMotion) {
+      fill.setValue(progress);
+      return;
+    }
+    Animated.timing(fill, {
+      toValue: progress,
+      duration: 600,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false,
+    }).start();
+  }, [progress, reduceMotion, fill]);
+  const fillWidth = fill.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
   return (
     <View style={styles.wrap}>
       <View style={[styles.card, { backgroundColor: c.cardBg, borderColor: c.border }]}>
@@ -57,11 +86,11 @@ export function LdlToneStep({
 
         {/* Level meter (capped scale — the bar physically cannot exceed 100%) */}
         <View style={[styles.meterTrack, { backgroundColor: c.sliderMax }]}>
-          <View
+          <Animated.View
             style={[
               styles.meterFill,
               {
-                width: `${progress * 100}%`,
+                width: fillWidth,
                 backgroundColor:
                   toneState === 'held-at-cap' ? c.statusScanning : c.accent,
               },
@@ -121,7 +150,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: RADIUS,
     borderWidth: 1,
-    padding: 20,
+    padding: 18,
     alignItems: 'center',
   },
   ruleWrap: {
@@ -135,6 +164,7 @@ const styles = StyleSheet.create({
   },
   stateText: {
     fontSize: 12,
+    fontFamily: SANS_FONT,
     marginBottom: 18,
     textAlign: 'center',
   },

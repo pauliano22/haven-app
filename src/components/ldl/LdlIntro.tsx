@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: RADIUS,
     borderWidth: 1,
-    padding: 20,
+    padding: 18,
   },
   title: {
     fontSize: 22,

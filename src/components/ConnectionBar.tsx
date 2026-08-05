@@ -1,8 +1,17 @@
-import React, { useMemo } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useBle } from '../context/BleContext';
 import { useTheme } from '../context/ThemeContext';
 import { ColorPalette, MONO_FONT, RADIUS, RADIUS_SM } from '../constants/theme';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { ConnectionStatus } from '../types';
 
 function statusConfig(
@@ -23,6 +32,7 @@ export function ConnectionBar() {
   const { status, queuedCount, connect, disconnect } = useBle();
   const { theme } = useTheme();
   const c = theme.colors;
+  const reduceMotion = useReducedMotion();
 
   const styles = useMemo(() => makeStyles(c), [c]);
   const { label, color } = statusConfig(status, c);
@@ -31,13 +41,42 @@ export function ConnectionBar() {
   const isConnected = status === 'connected';
   const showTeardown = isConnected || isReconnecting;
 
+  // Connected LED breathes slowly — a calm heartbeat, not an alert.
+  const ledOpacity = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    if (!isConnected || reduceMotion) {
+      ledOpacity.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(ledOpacity, {
+          toValue: 0.45,
+          duration: 1400,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(ledOpacity, {
+          toValue: 1,
+          duration: 1400,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [isConnected, reduceMotion, ledOpacity]);
+
   return (
     <View style={styles.container}>
       <View style={styles.statusRow}>
         {isBusy || isReconnecting ? (
           <ActivityIndicator size="small" color={color} style={styles.dot} />
         ) : (
-          <View style={[styles.dot, { backgroundColor: color }]} />
+          <Animated.View
+            style={[styles.dot, { backgroundColor: color, opacity: ledOpacity }]}
+          />
         )}
         <Text style={[styles.statusLabel, { color }]}>{label}</Text>
         {queuedCount > 0 && !isConnected && (

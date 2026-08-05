@@ -214,7 +214,7 @@ export function Dashboard({ onOpenLdl, importedBands, onImportConsumed }: Dashbo
               <Text style={styles.appTitle}>HAVEN</Text>
               <Blink style={styles.cursor}>▍</Blink>
             </View>
-            <Text style={styles.appSubtitle}>{'// remote console · adau1860 dsp'}</Text>
+            <Text style={styles.appSubtitle}>{'// quiet, tuned to you'}</Text>
           </View>
           <TouchableOpacity
             style={styles.themeToggle}

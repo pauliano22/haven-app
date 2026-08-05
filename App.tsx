@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { FadeIn } from './src/components/FadeIn';
 import { BleProvider } from './src/context/BleContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { Dashboard } from './src/screens/Dashboard';
@@ -47,15 +48,17 @@ function Root() {
     <>
       <StatusBar style={theme.dark ? 'light' : 'dark'} />
       <PhoneFrame>
-        {screen === 'dashboard' ? (
-          <Dashboard
-            onOpenLdl={openLdl}
-            importedBands={ldlBands}
-            onImportConsumed={consumeLdlBands}
-          />
-        ) : (
-          <LdlTest onClose={closeLdl} onApplyBands={setLdlBands} />
-        )}
+        <FadeIn key={screen}>
+          {screen === 'dashboard' ? (
+            <Dashboard
+              onOpenLdl={openLdl}
+              importedBands={ldlBands}
+              onImportConsumed={consumeLdlBands}
+            />
+          ) : (
+            <LdlTest onClose={closeLdl} onApplyBands={setLdlBands} />
+          )}
+        </FadeIn>
       </PhoneFrame>
     </>
   );

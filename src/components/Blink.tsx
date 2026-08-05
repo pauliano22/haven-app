@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, StyleProp, TextStyle } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleProp, TextStyle } from 'react-native';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 interface Props {
   children: React.ReactNode;
@@ -7,22 +8,12 @@ interface Props {
 }
 
 /**
- * Soft terminal-cursor blink. The app's only ambient motion — holds steady
- * when the system requests reduced motion.
+ * Soft terminal-cursor blink — a slow, even breath rather than a hard flash.
+ * Holds steady when the system requests reduced motion.
  */
 export function Blink({ children, style }: Props) {
   const opacity = useRef(new Animated.Value(1)).current;
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((v) => mounted && setReduceMotion(v))
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (reduceMotion) {
@@ -32,15 +23,15 @@ export function Blink({ children, style }: Props) {
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(opacity, {
-          toValue: 0.15,
-          duration: 640,
-          easing: Easing.inOut(Easing.quad),
+          toValue: 0.2,
+          duration: 700,
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
         Animated.timing(opacity, {
           toValue: 1,
-          duration: 640,
-          easing: Easing.inOut(Easing.quad),
+          duration: 700,
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
       ]),
