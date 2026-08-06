@@ -6,7 +6,8 @@ Non-negotiables:
 
 - `docs/safety.md` before touching any tone/level/LDL code.
 - `docs/ble-protocol.md` before touching payloads — the firmware
-  (`../nrf52_haven_fw`) must stay in sync.
+  ([haven-zephyr-app](https://github.com/pauliano22/haven-zephyr-app)) must
+  stay in sync.
 - `docs/design-system.md` before styling — palette/type/motion are deliberate.
 
 # Expo HAS CHANGED
