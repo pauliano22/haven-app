@@ -93,6 +93,26 @@ All gated by `useReducedMotion`:
 4. LDL meter glide between ramp steps.
 Nothing flashes, bounces, or spins.
 
+## Logo
+
+Seven marks were designed and reviewed (Aug 2026):
+https://claude.ai/code/artifact/780deca4-9bb7-43ea-9869-33e8a70b66ca
+
+- **App icon: Concept D, "Soft H"** — a monogram (two pillowy bars, `RADIUS_SM`
+  corner radius, joined by a crossbar that pinches thin at the center like a
+  damped amplitude curve). Shipped across every required size/format in
+  `assets/` — see `app.json`. It's a monogram specifically *because* an app
+  icon needs to survive 16px next to forty others; it isn't meant to carry
+  the brand's full personality on its own.
+- **Website: Concept G, "Radiant Bloom"** — a soft warm glow with the
+  wordmark emerging from center — live at
+  [haven-website](https://github.com/pauliano22/haven-website). The other
+  five concepts (Orb, Softened Wave, Canopy, Harbor Line, Damped Ligature)
+  are fully built and swappable in that repo — see its README for how to
+  change the live one. Harbor Line in particular is meant as the swap-in for
+  a page that wants more atmosphere (e.g. a future landing-page redesign),
+  not a everyday utility mark.
+
 ## Voice
 
 Sentence case, plain and warm: "Protected" / "Paused" / "Not connected", "Tap
