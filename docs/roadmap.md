@@ -1,6 +1,6 @@
 # Roadmap & status
 
-Last updated: 2026-08-05. `feature/ldl-dampening` and `design/sanctuary` are
+Last updated: 2026-08-06. `feature/ldl-dampening` and `design/sanctuary` are
 both merged into master. The **Sanctuary/Evergreen** redesign (three-tab
 Home/Tune/Hearing structure, Evergreen/Ivory theme) is the current app —
 it replaced the single-dashboard "Lamplight Terminal" look. See
@@ -15,6 +15,11 @@ dev-client build section) before considering it done.
   (auto-reconnect, offline queue, MTU 247), LDL guided test with hard safety
   limits, rename to Haven, full visual + IA redesign — Home/Tune/Hearing
   tabs, Evergreen/Ivory theme, shared `FilterContext`.
+- **Brand**: 7 logo concepts designed and reviewed (see
+  [design-system.md](design-system.md)#logo). App icon shipped — Concept D
+  "Soft H" across every platform size/format, `assets/`. Marketing site
+  shipped at [haven-website](https://github.com/pauliano22/haven-website)
+  with Concept G "Radiant Bloom" live and the other five swappable.
 - **Firmware scaffold** (`nrf52_haven_fw`): NUS peripheral advertising as
   `Haven`, newline framing, host-tested JSON parser with clamps, RBJ
   notch/peaking-cut coefficient math ported from the validated Teensy
@@ -52,10 +57,16 @@ dev-client build section) before considering it done.
 
 ## Known loose ends
 
-- App repo has an `origin` remote; local master is ahead — push when desired.
 - Bundle id is placeholder `com.haven.app` — pick a real reverse-DNS before
   store submission.
 - Legacy `teensy_hearing_shield` still speaks the *old* protocol dialect
-  (`FILTER_UPDATE`, lowercase handling); it is reference-only now.
-- The Claude Code project history path changed when the directory was renamed
-  `acoustic_shield_app` → `haven_app` (2026-08-05).
+  (`FILTER_UPDATE`, lowercase handling); it is reference-only now, pushed to
+  its own repo, [haven-legacy-teensy](https://github.com/pauliano22/haven-legacy-teensy).
+- `haven-website`'s GitHub Pages deploy is blocked as of 2026-08-06 by a
+  GitHub-wide Actions/Pages outage (confirmed via githubstatus.com, not an
+  account issue) — code is complete and pushed, it'll go live once GitHub
+  recovers with no further action needed.
+- This app now lives at `haven_workspace/mobile_app/haven_custom_app/` (a
+  submodule of [haven-workspace](https://github.com/pauliano22/haven-workspace)),
+  not a standalone `~/projects/active/` directory — the Claude Code project
+  history path has changed twice now (rename, then workspace reorg).
