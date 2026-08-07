@@ -62,10 +62,11 @@ dev-client build section) before considering it done.
 - Legacy `teensy_hearing_shield` still speaks the *old* protocol dialect
   (`FILTER_UPDATE`, lowercase handling); it is reference-only now, pushed to
   its own repo, [haven-legacy-teensy](https://github.com/pauliano22/haven-legacy-teensy).
-- `haven-website`'s GitHub Pages deploy is blocked as of 2026-08-06 by a
-  GitHub-wide Actions/Pages outage (confirmed via githubstatus.com, not an
-  account issue) — code is complete and pushed, it'll go live once GitHub
-  recovers with no further action needed.
+- `haven-website`'s GitHub Pages deploy was broken as of 2026-08-06 — not a
+  GitHub-wide outage, the legacy Jekyll build was failing on the plain
+  static site (no build step). Fixed by adding a `.nojekyll` file to the
+  repo root; live at https://pauliano22.github.io/haven-website/, linked
+  from the Home screen footer ("About Haven").
 - This app now lives at `haven_workspace/mobile_app/haven_custom_app/` (a
   submodule of [haven-workspace](https://github.com/pauliano22/haven-workspace)),
   not a standalone `~/projects/active/` directory — the Claude Code project

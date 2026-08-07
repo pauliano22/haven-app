@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
   Easing,
+  Linking,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -12,6 +13,8 @@ import {
   View,
 } from 'react-native';
 import { ColorPalette, RADIUS, SANS_FONT, SERIF_FONT } from '../constants/theme';
+
+const WEBSITE_URL = 'https://pauliano22.github.io/haven-website/';
 import { useBle } from '../context/BleContext';
 import { useFilters } from '../context/FilterContext';
 import { useTheme } from '../context/ThemeContext';
@@ -198,6 +201,17 @@ export function Home({ onNavigate }: Props) {
             <Text style={styles.cardHint}>Find the sounds that hurt</Text>
           </TouchableOpacity>
         </View>
+
+        {/* ── Footer ───────────────────────────────────── */}
+        <TouchableOpacity
+          style={styles.footerLink}
+          onPress={() => Linking.openURL(WEBSITE_URL)}
+          activeOpacity={0.6}
+          accessibilityRole="link"
+          accessibilityLabel="Open the Haven website"
+        >
+          <Text style={styles.footerLinkText}>About Haven ↗</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -362,6 +376,17 @@ function makeStyles(c: ColorPalette) {
       fontFamily: SANS_FONT,
       fontSize: 12,
       lineHeight: 17,
+      color: c.textSecondary,
+    },
+
+    footerLink: {
+      alignSelf: 'center',
+      marginTop: 26,
+      padding: 8,
+    },
+    footerLinkText: {
+      fontFamily: SANS_FONT,
+      fontSize: 12,
       color: c.textSecondary,
     },
   });
