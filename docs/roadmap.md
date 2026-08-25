@@ -26,17 +26,21 @@ dev-client build section) before considering it done.
   prototype.
 - **Protocol**: aligned end to end (`MULTI_FILTER`, uppercase `Q`, `\n`
   framing, 5-band cap, optional `atten_db`).
+- **Tone playback path for the LDL test** (`TONE_START`/`LEVEL`/`STOP`),
+  with an independent firmware level ceiling (85 dB, separate from this
+  app's own cap) and a 3s keep-alive watchdog — verified on physical
+  hardware. See [safety.md](safety.md). `haven-zephyr-app` commit `a8f38cf`.
 
 ## Next — firmware / hardware bring-up (blocking real audio)
 
 1. Production PCB + SigmaStudio+ program export → parameter RAM address map.
 2. Real ADAU1860 I2C driver: device-ID check, reset/hibernate sequencing,
    program download over SPI, safeload coefficient writes
-   (`src/adau1860.c` placeholders are marked `TODO(hw-bringup)`).
-3. **Tone playback path for the LDL test** (`TONE_START/LEVEL/STOP`) with an
-   independent firmware level ceiling + keep-alive watchdog — safety blocker,
-   see [safety.md](safety.md).
-4. Confirm ADAU1860 coefficient number format (8.24 fixed vs float core) and
+   (`haven-zephyr-app`'s `src/adau1860_control.c` placeholders are marked
+   `TODO(hw-bringup)` — also covers wiring the tone generator itself to
+   real hardware; `tone_safety.c`'s validation/watchdog layer is done, but
+   `adau1860_control_set_tone()` and friends are still stub logging).
+3. Confirm ADAU1860 coefficient number format (8.24 fixed vs float core) and
    implement the conversion.
 
 ## Next — app

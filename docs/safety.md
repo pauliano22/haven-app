@@ -28,13 +28,29 @@ any settings UI.
 5. **The STOP button** (`LdlToneStep`) is huge (130 pt), vermilion, isolated,
    and always reachable while a tone plays. Keep it that way.
 
-## Defense in depth — firmware side (NOT YET IMPLEMENTED)
+## Defense in depth — firmware side (implemented 2026-08-25)
 
-The app-side cap is one layer. The firmware must add an **independent**
-ceiling and its own tone watchdog (auto-silence if no TONE_LEVEL keep-alive
-arrives within a few seconds), so a frozen app or hostile peer cannot hold a
-loud tone. Tracked in [roadmap.md](roadmap.md) — treat as a hardware bring-up
-blocker, not a nice-to-have.
+The app-side cap is one layer. The firmware (`haven-zephyr-app`) now adds an
+**independent** second layer, so a frozen app or hostile peer cannot hold a
+loud tone:
+
+- `PROTOCOL_TONE_LEVEL_MAX_DB` (85, `src/protocol.h`) clamps every
+  `TONE_START`/`TONE_LEVEL` on-device, defined completely separately from
+  this app's own `MAX_TONE_LEVEL_DB` — the two are intentionally not derived
+  from one another.
+- `src/tone_safety.c` owns a 3-second keep-alive watchdog: if no
+  `TONE_LEVEL` arrives within that window, the firmware auto-silences the
+  tone on its own. This app's own ramp cadence (`LDL_RAMP_INTERVAL_MS` =
+  700ms) and hold-at-cap delay (2100ms) both comfortably clear that window,
+  so a healthy test session never trips it — only a genuinely frozen/dead
+  client does.
+- BLE disconnect force-stops any active tone on the firmware side too,
+  independent of this app's own `useLdlTone` link-loss handling.
+
+Verified on physical hardware: a `TONE_START` with no follow-up produces
+`tone_safety: Tone watchdog fired -- no TONE_LEVEL keep-alive within 3000
+ms, auto-silencing` in the firmware's log, and the tone stops with zero
+further input. See `haven-zephyr-app` commit `a8f38cf`.
 
 ## Related choices
 

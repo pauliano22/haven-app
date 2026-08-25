@@ -44,9 +44,10 @@ firmware side in `src/protocol.h` and `prj.conf`.
 {"type":"TONE_STOP"}
 ```
 Drives the calibration tone during the loudness-discomfort test.
-**Safety-critical** — see [safety.md](safety.md). The firmware does not
-implement these yet (roadmap): when it does, it must enforce its own level
-ceiling and an auto-stop watchdog independent of the app.
+**Safety-critical** — see [safety.md](safety.md). Implemented firmware-side
+as of `haven-zephyr-app` commit `a8f38cf`: `level_db` is clamped to 85 dB
+independently of this app's own cap, and a keep-alive watchdog auto-stops
+the tone if `TONE_LEVEL` doesn't arrive within 3s of the last one.
 
 ## App-side delivery semantics
 
