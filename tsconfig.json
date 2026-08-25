@@ -1,6 +1,11 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true
+    "strict": true,
+    // expo/tsconfig.base doesn't set this, so `tsc` (unlike Metro) can't
+    // resolve extensionless imports to platform-specific files on its own --
+    // prefer .native.tsx (the primary target: a phone app) when both it and
+    // a bare .tsx exist. Doesn't affect Metro's own bundling resolution.
+    "moduleSuffixes": [".native", ""]
   }
 }

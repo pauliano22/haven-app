@@ -63,6 +63,11 @@ export interface LdlResult {
   ldlDb: number | null;
 }
 
+export interface BenchFreqRange {
+  lowerHz: number;
+  upperHz: number;
+}
+
 export interface BleContextValue {
   status: ConnectionStatus;
   /** Payloads waiting to be flushed to the board on (re)connect. */
@@ -70,4 +75,14 @@ export interface BleContextValue {
   connect: () => void;
   disconnect: () => void;
   sendPayload: (payload: DspPayload) => Promise<void>;
+
+  // ── nRF5340 DK bench firmware only — see constants/ble.ts. False/null on
+  // production hardware, which won't have this service at all. ──────────────
+  /** True once the Haven Audio Control Service was found on the connected device. */
+  benchAvailable: boolean;
+  benchVolume: number | null;
+  benchFreqRange: BenchFreqRange | null;
+  /** Resolves once the board accepts the write; rejects (out-of-range, etc.) otherwise. */
+  setBenchVolume: (percent: number) => Promise<void>;
+  setBenchFreqRange: (range: BenchFreqRange) => Promise<void>;
 }

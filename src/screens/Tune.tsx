@@ -1,6 +1,6 @@
 import Slider from '@react-native-community/slider';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Platform,
   SafeAreaView,
@@ -23,8 +23,10 @@ import {
   Q_MIN,
 } from '../constants/dsp';
 import { ColorPalette, RADIUS, SANS_FONT, SERIF_FONT } from '../constants/theme';
+import { useBle } from '../context/BleContext';
 import { useFilters } from '../context/FilterContext';
 import { useTheme } from '../context/ThemeContext';
+import { useDebouncedCallback } from '../hooks/useDebounce';
 
 function formatFrequency(hz: number): string {
   if (hz >= 1000) return `${(hz / 1000).toFixed(2)} kHz`;
@@ -49,9 +51,75 @@ function haptic(style: Haptics.ImpactFeedbackStyle) {
 export function Tune() {
   const { bands, selectedId, selectedBand, bypass, selectBand, addBand, removeBand, updateSelected } =
     useFilters();
+  const { benchAvailable, benchVolume, benchFreqRange, setBenchVolume, setBenchFreqRange } = useBle();
   const { theme } = useTheme();
   const c = theme.colors;
   const styles = useMemo(() => makeStyles(c), [c]);
+
+  // ── nRF5340 DK bench controls — only appear when connected to bench
+  // firmware (Haven Audio Control Service), never on production hardware.
+  // Draft state gives the slider instant visual feedback; the actual write
+  // is debounced, and the displayed value settles back to whatever the
+  // board confirms (benchVolume/benchFreqRange, updated via BLE notify).
+  const [draftVolume, setDraftVolume] = useState(benchVolume ?? 100);
+  const [draftLower, setDraftLower] = useState(benchFreqRange?.lowerHz ?? F0_MIN);
+  const [draftUpper, setDraftUpper] = useState(benchFreqRange?.upperHz ?? F0_MAX);
+
+  useEffect(() => {
+    if (benchVolume != null) setDraftVolume(benchVolume);
+  }, [benchVolume]);
+  useEffect(() => {
+    if (benchFreqRange) {
+      setDraftLower(benchFreqRange.lowerHz);
+      setDraftUpper(benchFreqRange.upperHz);
+    }
+  }, [benchFreqRange]);
+
+  const sendBenchVolume = useDebouncedCallback((percent: number) => {
+    setBenchVolume(percent).catch(() => {
+      // Reverts the slider to the board's last confirmed value on rejection
+      // (e.g. a bad range from a bounds mismatch) instead of showing a stale
+      // optimistic position — the Alert itself comes from BleContext's
+      // shared error listener, not from here.
+      if (benchVolume != null) setDraftVolume(benchVolume);
+    });
+  }, 150);
+
+  const sendBenchFreqRange = useDebouncedCallback((lowerHz: number, upperHz: number) => {
+    setBenchFreqRange({ lowerHz, upperHz }).catch(() => {
+      if (benchFreqRange) {
+        setDraftLower(benchFreqRange.lowerHz);
+        setDraftUpper(benchFreqRange.upperHz);
+      }
+    });
+  }, 150);
+
+  const handleBenchVolumeChange = useCallback(
+    (value: number) => {
+      const percent = Math.round(value);
+      setDraftVolume(percent);
+      sendBenchVolume(percent);
+    },
+    [sendBenchVolume],
+  );
+
+  const handleBenchLowerChange = useCallback(
+    (value: number) => {
+      const lowerHz = Math.round(value);
+      setDraftLower(lowerHz);
+      sendBenchFreqRange(lowerHz, draftUpper);
+    },
+    [sendBenchFreqRange, draftUpper],
+  );
+
+  const handleBenchUpperChange = useCallback(
+    (value: number) => {
+      const upperHz = Math.round(value);
+      setDraftUpper(upperHz);
+      sendBenchFreqRange(draftLower, upperHz);
+    },
+    [sendBenchFreqRange, draftLower],
+  );
 
   const lastBucketRef = useRef(Math.floor(selectedBand.f0 / 100));
   useEffect(() => {
@@ -200,6 +268,61 @@ export function Tune() {
             <Text style={styles.rangeLabel}>Narrow</Text>
           </View>
         </View>
+
+        {/* ── nRF5340 DK bench controls ──────────────────
+         * Only rendered while connected to bench-firmware hardware (the
+         * Haven Audio Control Service) — never appears against production
+         * hardware, which won't expose this service at all. */}
+        {benchAvailable && (
+          <View style={[styles.card, styles.benchCard]}>
+            <SectionRule label="DK Bench Controls" hint="dev only" />
+            <Text style={styles.benchNote}>
+              Direct control of the nRF5340 DK's prototyping firmware — separate from the
+              filter above, for testing before the real DSP board arrives.
+            </Text>
+
+            <Text style={styles.benchLabel}>Volume — {draftVolume}%</Text>
+            <Slider
+              style={styles.secondarySlider}
+              minimumValue={0}
+              maximumValue={100}
+              value={draftVolume}
+              step={1}
+              onValueChange={handleBenchVolumeChange}
+              minimumTrackTintColor={c.accent}
+              maximumTrackTintColor={c.sliderMax}
+              thumbTintColor={c.accent}
+            />
+
+            <Text style={styles.benchLabel}>
+              Freq range — {Math.round(draftLower)}–{Math.round(draftUpper)} Hz
+            </Text>
+            <Text style={styles.rangeLabel}>Lower</Text>
+            <Slider
+              style={styles.secondarySlider}
+              minimumValue={F0_MIN}
+              maximumValue={F0_MAX}
+              value={draftLower}
+              step={1}
+              onValueChange={handleBenchLowerChange}
+              minimumTrackTintColor={c.accent}
+              maximumTrackTintColor={c.sliderMax}
+              thumbTintColor={c.accentSecondary}
+            />
+            <Text style={styles.rangeLabel}>Upper</Text>
+            <Slider
+              style={styles.secondarySlider}
+              minimumValue={F0_MIN}
+              maximumValue={F0_MAX}
+              value={draftUpper}
+              step={1}
+              onValueChange={handleBenchUpperChange}
+              minimumTrackTintColor={c.accent}
+              maximumTrackTintColor={c.sliderMax}
+              thumbTintColor={c.accentSecondary}
+            />
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -284,6 +407,25 @@ function makeStyles(c: ColorPalette) {
       fontSize: 11,
       fontFamily: SANS_FONT,
       color: c.textSecondary,
+    },
+
+    // Dashed border marks this card as a temporary dev affordance, visually
+    // distinct from the production filter controls above.
+    benchCard: { borderStyle: 'dashed', borderColor: c.textSecondary },
+    benchNote: {
+      fontSize: 12,
+      fontFamily: SANS_FONT,
+      color: c.textSecondary,
+      lineHeight: 17,
+      marginBottom: 14,
+    },
+    benchLabel: {
+      fontSize: 13,
+      fontFamily: SANS_FONT,
+      fontWeight: '600',
+      color: c.textPrimary,
+      marginTop: 10,
+      marginBottom: 2,
     },
   });
 }

@@ -6,6 +6,9 @@ import {
 } from 'react-native';
 import { BleManager, Device, State, Subscription } from 'react-native-ble-plx';
 import {
+  BENCH_AUDIO_SERVICE_UUID,
+  BENCH_FREQ_RANGE_CHAR_UUID,
+  BENCH_VOLUME_CHAR_UUID,
   CONNECT_TIMEOUT_MS,
   DEVICE_NAME,
   RECONNECT_DIRECT_ATTEMPTS,
@@ -16,7 +19,7 @@ import {
   UART_RX_CHAR_UUID,
   UART_SERVICE_UUID,
 } from '../constants/ble';
-import { ConnectionStatus, DspPayload } from '../types';
+import { BenchFreqRange, ConnectionStatus, DspPayload } from '../types';
 
 export type BleErrorContext =
   | 'permissions'
@@ -24,7 +27,8 @@ export type BleErrorContext =
   | 'scan'
   | 'connect'
   | 'reconnect'
-  | 'write';
+  | 'write'
+  | 'bench-write';
 
 export interface BleErrorEvent {
   context: BleErrorContext;
@@ -40,9 +44,28 @@ export interface BleListenerHandle {
 type StatusListener = (status: ConnectionStatus) => void;
 type QueueListener = (count: number) => void;
 type ErrorListener = (event: BleErrorEvent) => void;
+type BenchAvailableListener = (available: boolean) => void;
+type BenchVolumeListener = (percent: number) => void;
+type BenchFreqRangeListener = (range: BenchFreqRange) => void;
 
 function encodeBase64(str: string): string {
   return btoa(unescape(encodeURIComponent(str)));
+}
+
+function bytesToBase64(bytes: number[]): string {
+  return btoa(String.fromCharCode(...bytes));
+}
+
+function base64ToBytes(b64: string): number[] {
+  const binary = atob(b64);
+  return Array.from(binary, (ch) => ch.charCodeAt(0));
+}
+
+function decodeFreqRangeBytes(bytes: number[]): BenchFreqRange {
+  return {
+    lowerHz: bytes[0] | (bytes[1] << 8),
+    upperHz: bytes[2] | (bytes[3] << 8),
+  };
 }
 
 function errorMessage(err: unknown): string {
@@ -110,6 +133,16 @@ export class BleConnectionManager {
   private readonly queueListeners = new Set<QueueListener>();
   private readonly errorListeners = new Set<ErrorListener>();
 
+  // ── nRF5340 DK bench firmware only (Haven Audio Control Service) ─────────
+  private benchAvailable = false;
+  private benchVolume: number | null = null;
+  private benchFreqRange: BenchFreqRange | null = null;
+  private benchVolumeSub: Subscription | null = null;
+  private benchFreqRangeSub: Subscription | null = null;
+  private readonly benchAvailableListeners = new Set<BenchAvailableListener>();
+  private readonly benchVolumeListeners = new Set<BenchVolumeListener>();
+  private readonly benchFreqRangeListeners = new Set<BenchFreqRangeListener>();
+
   constructor() {
     this.adapterStateSub = this.manager.onStateChange((state) => {
       if (state === State.PoweredOn) {
@@ -149,6 +182,79 @@ export class BleConnectionManager {
   onError(listener: ErrorListener): BleListenerHandle {
     this.errorListeners.add(listener);
     return { remove: () => this.errorListeners.delete(listener) };
+  }
+
+  // ── nRF5340 DK bench firmware only ───────────────────────────────────────
+
+  isBenchAvailable(): boolean {
+    return this.benchAvailable;
+  }
+
+  getBenchVolume(): number | null {
+    return this.benchVolume;
+  }
+
+  getBenchFreqRange(): BenchFreqRange | null {
+    return this.benchFreqRange;
+  }
+
+  onBenchAvailableChange(listener: BenchAvailableListener): BleListenerHandle {
+    this.benchAvailableListeners.add(listener);
+    return { remove: () => this.benchAvailableListeners.delete(listener) };
+  }
+
+  onBenchVolumeChange(listener: BenchVolumeListener): BleListenerHandle {
+    this.benchVolumeListeners.add(listener);
+    return { remove: () => this.benchVolumeListeners.delete(listener) };
+  }
+
+  onBenchFreqRangeChange(listener: BenchFreqRangeListener): BleListenerHandle {
+    this.benchFreqRangeListeners.add(listener);
+    return { remove: () => this.benchFreqRangeListeners.delete(listener) };
+  }
+
+  /** Resolves once the board accepts the write; rejects (out-of-range, etc.) otherwise. */
+  async setBenchVolume(percent: number): Promise<void> {
+    const device = this.device;
+    if (!device || !this.benchAvailable) {
+      throw new Error('Bench controls are not available on this connection.');
+    }
+    try {
+      await device.writeCharacteristicWithResponseForService(
+        BENCH_AUDIO_SERVICE_UUID,
+        BENCH_VOLUME_CHAR_UUID,
+        bytesToBase64([Math.round(percent)]),
+      );
+      // The board notifies the accepted value back; the monitor picks it up.
+      // Setting it here too covers devices/OSes that don't echo a self-write.
+      this.setBenchVolumeValue(Math.round(percent));
+    } catch (err) {
+      this.emitError('bench-write', true, errorMessage(err));
+      throw err;
+    }
+  }
+
+  /** Resolves once the board accepts the write; rejects (out-of-range, etc.) otherwise. */
+  async setBenchFreqRange(range: BenchFreqRange): Promise<void> {
+    const device = this.device;
+    if (!device || !this.benchAvailable) {
+      throw new Error('Bench controls are not available on this connection.');
+    }
+    const lower = Math.round(range.lowerHz);
+    const upper = Math.round(range.upperHz);
+    const wire = [lower & 0xff, (lower >> 8) & 0xff, upper & 0xff, (upper >> 8) & 0xff];
+
+    try {
+      await device.writeCharacteristicWithResponseForService(
+        BENCH_AUDIO_SERVICE_UUID,
+        BENCH_FREQ_RANGE_CHAR_UUID,
+        bytesToBase64(wire),
+      );
+      this.setBenchFreqRangeValue({ lowerHz: lower, upperHz: upper });
+    } catch (err) {
+      this.emitError('bench-write', true, errorMessage(err));
+      throw err;
+    }
   }
 
   /** User-initiated connect: permissions → adapter check → scan → connect. */
@@ -198,6 +304,7 @@ export class BleConnectionManager {
 
     this.disconnectSub?.remove();
     this.disconnectSub = null;
+    this.teardownBenchControls();
 
     const device = this.device;
     this.device = null;
@@ -229,9 +336,13 @@ export class BleConnectionManager {
     this.disconnectSub?.remove();
     this.adapterStateSub?.remove();
     this.appStateSub?.remove();
+    this.teardownBenchControls();
     this.statusListeners.clear();
     this.queueListeners.clear();
     this.errorListeners.clear();
+    this.benchAvailableListeners.clear();
+    this.benchVolumeListeners.clear();
+    this.benchFreqRangeListeners.clear();
     this.manager.destroy();
   }
 
@@ -286,6 +397,10 @@ export class BleConnectionManager {
       await device.requestMTU(REQUESTED_MTU).catch(() => {});
     }
 
+    const hasBenchService = services.some(
+      (s) => s.uuid.toUpperCase() === BENCH_AUDIO_SERVICE_UUID.toUpperCase(),
+    );
+
     if (gen !== this.generation) {
       await device.cancelConnection().catch(() => {});
       return;
@@ -302,6 +417,57 @@ export class BleConnectionManager {
 
     this.setStatus('connected');
     this.flushQueue();
+
+    // Bench firmware only (haven-zephyr-app's Haven Audio Control Service) —
+    // absent on production hardware, so its absence here is normal, not an error.
+    if (hasBenchService) {
+      await this.setupBenchControls(device).catch((err) => {
+        this.emitError('bench-write', false, errorMessage(err));
+      });
+    } else {
+      this.setBenchAvailable(false);
+    }
+  }
+
+  private async setupBenchControls(device: Device): Promise<void> {
+    const [volumeChar, freqChar] = await Promise.all([
+      device.readCharacteristicForService(BENCH_AUDIO_SERVICE_UUID, BENCH_VOLUME_CHAR_UUID),
+      device.readCharacteristicForService(BENCH_AUDIO_SERVICE_UUID, BENCH_FREQ_RANGE_CHAR_UUID),
+    ]);
+
+    if (this.device !== device) return; // superseded by a disconnect/reconnect mid-read
+
+    this.setBenchAvailable(true);
+    if (volumeChar.value) this.setBenchVolumeValue(base64ToBytes(volumeChar.value)[0]);
+    if (freqChar.value) this.setBenchFreqRangeValue(decodeFreqRangeBytes(base64ToBytes(freqChar.value)));
+
+    this.benchVolumeSub?.remove();
+    this.benchVolumeSub = device.monitorCharacteristicForService(
+      BENCH_AUDIO_SERVICE_UUID,
+      BENCH_VOLUME_CHAR_UUID,
+      (error, char) => {
+        if (error || !char?.value) return;
+        this.setBenchVolumeValue(base64ToBytes(char.value)[0]);
+      },
+    );
+
+    this.benchFreqRangeSub?.remove();
+    this.benchFreqRangeSub = device.monitorCharacteristicForService(
+      BENCH_AUDIO_SERVICE_UUID,
+      BENCH_FREQ_RANGE_CHAR_UUID,
+      (error, char) => {
+        if (error || !char?.value) return;
+        this.setBenchFreqRangeValue(decodeFreqRangeBytes(base64ToBytes(char.value)));
+      },
+    );
+  }
+
+  private teardownBenchControls(): void {
+    this.benchVolumeSub?.remove();
+    this.benchVolumeSub = null;
+    this.benchFreqRangeSub?.remove();
+    this.benchFreqRangeSub = null;
+    this.setBenchAvailable(false);
   }
 
   private handleUnexpectedDisconnect(): void {
@@ -310,6 +476,7 @@ export class BleConnectionManager {
     this.disconnectSub?.remove();
     this.disconnectSub = null;
     this.device = null;
+    this.teardownBenchControls();
 
     if (this.autoReconnect) {
       void this.runReconnectLoop();
@@ -421,6 +588,29 @@ export class BleConnectionManager {
   private emitError(context: BleErrorContext, userInitiated: boolean, message: string): void {
     const event: BleErrorEvent = { context, userInitiated, message };
     this.errorListeners.forEach((listener) => listener(event));
+  }
+
+  private setBenchAvailable(available: boolean): void {
+    if (this.benchAvailable === available) return;
+    this.benchAvailable = available;
+    if (!available) {
+      this.benchVolume = null;
+      this.benchFreqRange = null;
+    }
+    this.benchAvailableListeners.forEach((listener) => listener(available));
+  }
+
+  private setBenchVolumeValue(percent: number): void {
+    if (this.benchVolume === percent) return;
+    this.benchVolume = percent;
+    this.benchVolumeListeners.forEach((listener) => listener(percent));
+  }
+
+  private setBenchFreqRangeValue(range: BenchFreqRange): void {
+    const prev = this.benchFreqRange;
+    if (prev && prev.lowerHz === range.lowerHz && prev.upperHz === range.upperHz) return;
+    this.benchFreqRange = range;
+    this.benchFreqRangeListeners.forEach((listener) => listener(range));
   }
 }
 
