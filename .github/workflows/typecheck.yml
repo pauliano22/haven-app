@@ -1,0 +1,36 @@
+# Runs `tsc --noEmit` on every push/PR to master. This is what caught the
+# stale src/context/BleContext.tsx (a duplicate left behind when the
+# native/web split was introduced, silently drifting out of sync ever
+# since) -- worth having run automatically instead of by hand.
+#
+# Checks both platform targets: Metro resolves extensionless imports like
+# '../context/BleContext' to .native.tsx or .web.tsx depending on target,
+# but plain `tsc` needs to be told which one via moduleSuffixes (see
+# tsconfig.json's own NOTE) -- one pass per target, since a single
+# invocation can only pick one.
+name: Typecheck
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck (native — tsconfig.json's default moduleSuffixes)
+        run: npx tsc --noEmit
+
+      - name: Typecheck (web)
+        run: npx tsc --noEmit --moduleSuffixes '.web,'
