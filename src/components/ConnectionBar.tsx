@@ -14,6 +14,14 @@ import { ColorPalette, RADIUS, RADIUS_SM, SANS_FONT } from '../constants/theme';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { ConnectionStatus } from '../types';
 
+/* Mirrors BLE_IDLE_ADV_TIMEOUT_MS in haven-zephyr-app's ble_transport.c --
+ * there's no characteristic exposing the board's real advertising interval,
+ * so this is an approximation of when a truly idle board would have dropped
+ * to slow advertising, purely to set the user's reconnect-time expectation.
+ * Not kept in sync automatically; re-check both sides if either changes.
+ */
+const IDLE_ADV_SLOWDOWN_MS = 5 * 60 * 1000;
+
 function statusConfig(
   status: ConnectionStatus,
   c: ColorPalette,
@@ -40,6 +48,20 @@ export function ConnectionBar() {
   const isReconnecting = status === 'reconnecting';
   const isConnected = status === 'connected';
   const showTeardown = isConnected || isReconnecting;
+
+  // After a long stretch with no phone connected, the board itself slows its
+  // advertising to save power (see IDLE_ADV_SLOWDOWN_MS above) -- surface
+  // that as a quiet expectation-setter rather than letting a slower
+  // reconnect look like a problem.
+  const [showIdleHint, setShowIdleHint] = React.useState(false);
+  useEffect(() => {
+    if (isConnected) {
+      setShowIdleHint(false);
+      return;
+    }
+    const timer = setTimeout(() => setShowIdleHint(true), IDLE_ADV_SLOWDOWN_MS);
+    return () => clearTimeout(timer);
+  }, [status, isConnected]);
 
   // Connected LED breathes slowly — a calm heartbeat, not an alert.
   const ledOpacity = useRef(new Animated.Value(1)).current;
@@ -70,38 +92,47 @@ export function ConnectionBar() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.statusRow}>
-        {isBusy || isReconnecting ? (
-          <ActivityIndicator size="small" color={color} style={styles.dot} />
-        ) : (
-          <Animated.View
-            style={[styles.dot, { backgroundColor: color, opacity: ledOpacity }]}
-          />
-        )}
-        <Text style={[styles.statusLabel, { color }]}>{label}</Text>
-        {queuedCount > 0 && !isConnected && (
-          <Text style={styles.queuedLabel}>
-            {queuedCount} queued
+      <View style={styles.mainRow}>
+        <View style={styles.statusRow}>
+          {isBusy || isReconnecting ? (
+            <ActivityIndicator size="small" color={color} style={styles.dot} />
+          ) : (
+            <Animated.View
+              style={[styles.dot, { backgroundColor: color, opacity: ledOpacity }]}
+            />
+          )}
+          <Text style={[styles.statusLabel, { color }]}>{label}</Text>
+          {queuedCount > 0 && !isConnected && (
+            <Text style={styles.queuedLabel}>
+              {queuedCount} queued
+            </Text>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={[styles.button, showTeardown ? styles.buttonDisconnect : styles.buttonConnect]}
+          onPress={showTeardown ? disconnect : connect}
+          disabled={isBusy}
+          activeOpacity={0.75}
+        >
+          <Text style={[styles.buttonText, showTeardown && styles.buttonTextDisconnect]}>
+            {isConnected
+              ? 'Disconnect'
+              : isReconnecting
+                ? 'Cancel'
+                : isBusy
+                  ? 'Scanning...'
+                  : 'Connect'}
           </Text>
-        )}
+        </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        style={[styles.button, showTeardown ? styles.buttonDisconnect : styles.buttonConnect]}
-        onPress={showTeardown ? disconnect : connect}
-        disabled={isBusy}
-        activeOpacity={0.75}
-      >
-        <Text style={[styles.buttonText, showTeardown && styles.buttonTextDisconnect]}>
-          {isConnected
-            ? 'Disconnect'
-            : isReconnecting
-              ? 'Cancel'
-              : isBusy
-                ? 'Scanning...'
-                : 'Connect'}
+      {showIdleHint && !isConnected && (
+        <Text style={[styles.idleHint, { color: c.textSecondary }]}>
+          Reconnect may take a few seconds after being idle a while — press
+          the device's button for an instant reconnect.
         </Text>
-      </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -109,9 +140,6 @@ export function ConnectionBar() {
 function makeStyles(c: ColorPalette) {
   return StyleSheet.create({
     container: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
       backgroundColor: c.cardBg,
       borderRadius: RADIUS,
       borderWidth: 1,
@@ -119,6 +147,17 @@ function makeStyles(c: ColorPalette) {
       paddingHorizontal: 16,
       paddingVertical: 13,
       marginBottom: 16,
+    },
+    mainRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    idleHint: {
+      fontSize: 11,
+      fontFamily: SANS_FONT,
+      lineHeight: 15,
+      marginTop: 10,
     },
     statusRow: {
       flexDirection: 'row',

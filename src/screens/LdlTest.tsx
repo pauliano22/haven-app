@@ -2,9 +2,11 @@ import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, SafeAreaView, ScrollView, StyleSheet, Text } from 'react-native';
 import { ConnectionBar } from '../components/ConnectionBar';
+import { LdlHistory } from '../components/ldl/LdlHistory';
 import { LdlIntro } from '../components/ldl/LdlIntro';
 import { LdlResults, SENSITIVE_LDL_THRESHOLD_DB } from '../components/ldl/LdlResults';
 import { LdlToneStep } from '../components/ldl/LdlToneStep';
+import { getLdlHistory, saveLdlRun } from '../services/LdlHistoryStore';
 import {
   ATTEN_MAX_DB,
   ATTEN_MIN_DB,
@@ -17,7 +19,7 @@ import { useBle } from '../context/BleContext';
 import { useFilters } from '../context/FilterContext';
 import { useTheme } from '../context/ThemeContext';
 import { ToneStopInfo, useLdlTone } from '../hooks/useLdlTone';
-import { FilterBand, LdlResult } from '../types';
+import { FilterBand, LdlResult, LdlRun } from '../types';
 
 type Phase = 'intro' | 'testing' | 'results';
 
@@ -55,18 +57,31 @@ export function LdlTest() {
   const [phase, setPhase] = useState<Phase>('intro');
   const [stepIndex, setStepIndex] = useState(0);
   const [results, setResults] = useState<LdlResult[]>([]);
+  const [history, setHistory] = useState<LdlRun[]>([]);
   const stepIndexRef = useRef(0);
+  const resultsRef = useRef<LdlResult[]>([]);
 
   const connected = status === 'connected';
   const frequencies = LDL_TEST_FREQUENCIES_HZ;
 
+  useEffect(() => {
+    getLdlHistory().then(setHistory);
+  }, []);
+
   const advance = useCallback(
     (result: LdlResult | null) => {
-      if (result) setResults((prev) => [...prev, result]);
+      if (result) {
+        resultsRef.current = [...resultsRef.current, result];
+        setResults(resultsRef.current);
+      }
 
       const next = stepIndexRef.current + 1;
       if (next >= frequencies.length) {
         setPhase('results');
+        // A full pass through every test frequency -- this is what "completed" means
+        // here; an aborted-early run (handleAbort) is deliberately not saved.
+        const run: LdlRun = { timestamp: Date.now(), results: resultsRef.current };
+        saveLdlRun(run).then(() => setHistory((prev) => [run, ...prev]));
       } else {
         stepIndexRef.current = next;
         setStepIndex(next);
@@ -97,6 +112,7 @@ export function LdlTest() {
   }, [phase, connected]);
 
   const handleBegin = useCallback(() => {
+    resultsRef.current = [];
     setResults([]);
     stepIndexRef.current = 0;
     setStepIndex(0);
@@ -136,7 +152,12 @@ export function LdlTest() {
 
         <ConnectionBar />
 
-        {phase === 'intro' && <LdlIntro connected={connected} onStart={handleBegin} />}
+        {phase === 'intro' && (
+          <>
+            <LdlIntro connected={connected} onStart={handleBegin} />
+            <LdlHistory runs={history} />
+          </>
+        )}
 
         {phase === 'testing' && (
           <LdlToneStep

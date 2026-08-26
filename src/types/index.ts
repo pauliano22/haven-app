@@ -63,6 +63,13 @@ export interface LdlResult {
   ldlDb: number | null;
 }
 
+/** One completed LDL test run, persisted for history/trend display. */
+export interface LdlRun {
+  /** ms since epoch, when the run completed. */
+  timestamp: number;
+  results: LdlResult[];
+}
+
 export interface BenchFreqRange {
   lowerHz: number;
   upperHz: number;
