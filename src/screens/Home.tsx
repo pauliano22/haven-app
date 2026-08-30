@@ -196,9 +196,9 @@ export function Home({ onNavigate }: Props) {
             onPress={() => onNavigate('hearing')}
             activeOpacity={0.8}
           >
-            <Text style={styles.cardTitle}>Hearing test</Text>
-            <Text style={styles.cardBody}>5–10 minutes</Text>
-            <Text style={styles.cardHint}>Find the sounds that hurt</Text>
+            <Text style={styles.cardTitle}>Hearing</Text>
+            <Text style={styles.cardBody}>2 guided tests</Text>
+            <Text style={styles.cardHint}>Find what hurts, or match your sound</Text>
           </TouchableOpacity>
         </View>
 
