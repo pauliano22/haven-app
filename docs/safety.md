@@ -52,6 +52,17 @@ Verified on physical hardware: a `TONE_START` with no follow-up produces
 ms, auto-silencing` in the firmware's log, and the tone stops with zero
 further input. See `haven-zephyr-app` commit `a8f38cf`.
 
+## "Match your sound" — short burst tones (`usePreviewTone`)
+
+The pitch/loudness matching flow (`PitchMatchTest`) never approaches
+discomfort — every tone is a short, fixed-duration burst at a comfortable,
+capped level (`MATCH_PITCH_TONE_LEVEL_DB` = 55 dB for pitch comparisons; the
+loudness-match slider is bounded to `MATCH_LOUDNESS_MIN_DB`–`MATCH_LOUDNESS_MAX_DB`
+= 10–70 dB). `usePreviewTone` has no ramp and therefore no keep-alive loop:
+`MATCH_BURST_DURATION_MS` (1400ms) is kept well under the firmware's 3s
+`TONE_LEVEL` watchdog, so a single `TONE_START`/`TONE_STOP` pair per burst is
+safe on its own. Same link-loss/unmount kill behavior as `useLdlTone`.
+
 ## Related choices
 
 - LDL results are interpreted conservatively: only frequencies uncomfortable
