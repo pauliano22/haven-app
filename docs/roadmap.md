@@ -33,6 +33,14 @@ dev-client build section) before considering it done.
 - LDL result history/trend view (AsyncStorage-backed).
 - Filter bands/bypass persist across app launches (AsyncStorage), and
   re-sync to a freshly connected device once per connection.
+- **Tolerance-building plan** (`TolerancePlanCard`, Tune screen): an
+  opt-in, one-band-at-a-time plan that reduces `attenDb` by a fixed 3dB
+  step per week, only ever on an explicit tap (never automatic). Honest
+  about what Haven's hardware can and can't do here — it has no broadband
+  noise generator, so this can't be real sound-generator-based hyperacusis
+  therapy; what it *can* do is help counter over-protection (a real,
+  documented risk) by gradually easing softening back down. See
+  `constants/tolerance.ts`.
 
 ## Next — firmware / hardware bring-up (blocking real audio)
 
