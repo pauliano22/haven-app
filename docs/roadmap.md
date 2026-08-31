@@ -15,6 +15,16 @@ dev-client build section) before considering it done.
   (auto-reconnect, offline queue, MTU 247), LDL guided test with hard safety
   limits, rename to Haven, full visual + IA redesign — Home/Tune/Hearing
   tabs, Evergreen/Ivory theme, shared `FilterContext`.
+- **"Match your sound"** (2026-08-30): self-guided tinnitus pitch/loudness
+  matching, adaptive 2AFC bisection in log-frequency space (`src/utils/pitchMatch.ts`),
+  converging in 5-8 short comparison tones. Feeds straight into a
+  personalized softening band (same `applyBands` path as the LDL test).
+  Includes an optional 0-10 "how bothersome right now" check-in and a
+  persisted run history (`MatchHistoryStore`), same pattern as LDL history.
+  The Hearing tab is now a two-tool picker (loudness comfort test / match
+  your sound) instead of a single LDL screen. Framed deliberately as
+  self-management, not a cure — see the product notes this was scoped from
+  for why (notched sound therapy has weak/mixed clinical evidence).
 - **Brand**: 7 logo concepts designed and reviewed (see
   [design-system.md](design-system.md)#logo). App icon shipped — Concept D
   "Soft H" across every platform size/format, `assets/`. Marketing site
