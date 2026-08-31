@@ -34,3 +34,6 @@ jobs:
 
       - name: Typecheck (web)
         run: npx tsc --noEmit --moduleSuffixes '.web,'
+
+      - name: Unit tests
+        run: npx jest --ci
