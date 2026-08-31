@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { ConnectionBar } from '../components/ConnectionBar';
 import { SectionRule } from '../components/SectionRule';
+import { TolerancePlanCard } from '../components/TolerancePlanCard';
 import { VisualizerCurve } from '../components/VisualizerCurve';
 import {
   ATTEN_MAX_DB,
@@ -22,11 +23,13 @@ import {
   Q_MAX,
   Q_MIN,
 } from '../constants/dsp';
+import { TOLERANCE_STEP_DB } from '../constants/tolerance';
 import { ColorPalette, RADIUS, SANS_FONT, SERIF_FONT } from '../constants/theme';
 import { useBle } from '../context/BleContext';
 import { useFilters } from '../context/FilterContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDebouncedCallback } from '../hooks/useDebounce';
+import { useTolerancePlan } from '../hooks/useTolerancePlan';
 
 function formatFrequency(hz: number): string {
   if (hz >= 1000) return `${(hz / 1000).toFixed(2)} kHz`;
@@ -49,12 +52,32 @@ function haptic(style: Haptics.ImpactFeedbackStyle) {
 }
 
 export function Tune() {
-  const { bands, selectedId, selectedBand, bypass, selectBand, addBand, removeBand, updateSelected } =
+  const { bands, selectedId, selectedBand, bypass, selectBand, addBand, removeBand, updateSelected, updateBand } =
     useFilters();
   const { benchAvailable, benchVolume, benchFreqRange, setBenchVolume, setBenchFreqRange } = useBle();
   const { theme } = useTheme();
   const c = theme.colors;
   const styles = useMemo(() => makeStyles(c), [c]);
+
+  // ── Tolerance-building plan ────────────────────────────────────────────
+  // See constants/tolerance.ts for why this only ever reduces softening on
+  // explicit confirmation, never automatically.
+  const { plan, loaded: planLoaded, dueForStep, startPlan, stopPlan, advanceStep } = useTolerancePlan();
+  const planBand = plan ? bands.find((b) => b.id === plan.bandId) : undefined;
+
+  // If the plan's band was removed (e.g. via the × on a band chip), the plan
+  // is orphaned — clear it rather than pointing at nothing.
+  useEffect(() => {
+    if (planLoaded && plan && !planBand) stopPlan();
+  }, [planLoaded, plan, planBand, stopPlan]);
+
+  const handleAdvancePlan = useCallback(() => {
+    if (!plan || !planBand) return;
+    updateBand(plan.bandId, { attenDb: Math.max(0, planBand.attenDb - TOLERANCE_STEP_DB) });
+    advanceStep();
+  }, [plan, planBand, updateBand, advanceStep]);
+
+  const canStartPlan = planLoaded && !plan && selectedBand.attenDb > ATTEN_MIN_DB;
 
   // ── nRF5340 DK bench controls — only appear when connected to bench
   // firmware (Haven Audio Control Service), never on production hardware.
@@ -203,6 +226,26 @@ export function Tune() {
             </TouchableOpacity>
           )}
         </ScrollView>
+
+        {plan && planBand && (
+          <TolerancePlanCard
+            plan={plan}
+            currentAttenDb={planBand.attenDb}
+            dueForStep={dueForStep}
+            onAdvance={handleAdvancePlan}
+            onStop={stopPlan}
+          />
+        )}
+        {canStartPlan && (
+          <TouchableOpacity
+            style={styles.startPlanLink}
+            onPress={() => startPlan(selectedBand.id, selectedBand.f0)}
+            accessibilityRole="button"
+            accessibilityLabel="Build tolerance for this sound"
+          >
+            <Text style={styles.startPlanText}>Build tolerance for this sound →</Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── Frequency ────────────────────────────────  */}
         <View style={styles.card}>
@@ -380,6 +423,16 @@ function makeStyles(c: ColorPalette) {
       justifyContent: 'center',
     },
     bandAddText: { fontSize: 17, color: c.textSecondary, lineHeight: 19 },
+
+    startPlanLink: {
+      marginBottom: 14,
+    },
+    startPlanText: {
+      fontSize: 12.5,
+      fontFamily: SANS_FONT,
+      fontWeight: '600',
+      color: c.accent,
+    },
 
     card: {
       backgroundColor: c.cardBg,
