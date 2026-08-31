@@ -68,6 +68,13 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
     sendPayload({ type: 'MULTI_FILTER', bands: toWireBands(next) });
   }, 100);
 
+  // Same reasoning as debouncedSend above: a slider drag fires many bands
+  // updates per second, and every one of those would otherwise be a
+  // separate AsyncStorage write.
+  const debouncedSave = useDebouncedCallback((nextBands: FilterBand[], nextBypass: boolean) => {
+    saveFilterProfile({ bands: nextBands, bypass: nextBypass });
+  }, 400);
+
   // Load the last saved profile once on startup, so bands/bypass survive
   // an app relaunch instead of resetting to the single default band.
   useEffect(() => {
@@ -83,11 +90,15 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist on every change, once hydration has settled (so we never
-  // overwrite the saved profile with the transient pre-hydration default).
+  // Persist on every change (debounced), once hydration has settled (so we
+  // never overwrite the saved profile with the transient pre-hydration
+  // default).
   useEffect(() => {
     if (!hydrated) return;
-    saveFilterProfile({ bands, bypass });
+    debouncedSave(bands, bypass);
+    // debouncedSave is stable (useDebouncedCallback wraps it in a ref), so
+    // omitting it here doesn't skip any real dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, bands, bypass]);
 
   // Push the saved profile to a freshly connected device once per
