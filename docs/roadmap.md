@@ -33,6 +33,11 @@ dev-client build section) before considering it done.
 - LDL result history/trend view (AsyncStorage-backed).
 - Filter bands/bypass persist across app launches (AsyncStorage), and
   re-sync to a freshly connected device once per connection.
+- **Comfort check-in** (`ComfortCheckIn`, Tune screen): an occasional
+  ("too strong / just right / not enough") prompt that nudges the selected
+  band's `attenDb` by a fixed 3dB step and gates itself to once per 24h.
+  Deliberately framed as a simple nudge, not a real per-user ML model —
+  see `constants/comfort.ts`.
 
 ## Next — firmware / hardware bring-up (blocking real audio)
 
