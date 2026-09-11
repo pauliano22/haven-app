@@ -14,6 +14,8 @@ cold (human or AI), read in this order:
 | [app-guide.md](app-guide.md) | App code structure: screens, services, hooks, state flow |
 | [design-system.md](design-system.md) | The "Lamplight Terminal" visual language — palette, type, motion, voice |
 | [safety.md](safety.md) | Output-level safety invariants. **Read before touching LDL or tone code.** |
+| [calibration.md](calibration.md) | How to measure commanded `level_db` against real dB SPL — the procedure that makes the safety numbers mean something. Empty Results section until done on hardware. |
+| [clinical-basis.md](clinical-basis.md) | What the literature says about notching for tinnitus vs hyperacusis vs misophonia, and the product decisions that follow (taper, LDL history as a safety signal, N-of-1 outcome measurement, claims language). |
 | [roadmap.md](roadmap.md) | What's done, what's next, and known loose ends |
 
 ## Quick facts
