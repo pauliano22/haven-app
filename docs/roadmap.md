@@ -48,7 +48,7 @@ code rather than by new work:
 - ~~Program download over SPI~~ — there is no SPI path to the codec on this
   board; everything is I2C (`SDA1`/`SCL1`, address 0x64, 32-bit register
   addresses).
-- ~~Confirm coefficient number format~~ — **Q5.27**, `[b0,b1,b2,a1,a2]`,
+- ~~Confirm coefficient number format~~ — **Q5.27**, `[b0,b1,b2,-a1,-a2]` (feedback taps negated in the FastDSP slots),
   verified against upstream's `Equalizer.cpp` (its 150 Hz peaking row
   matches RBJ math to five decimals).
 

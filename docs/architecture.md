@@ -26,7 +26,9 @@ parameters and writes them into the ADAU1860's FastDSP parameter banks through
 the chip's hardware **safeload** registers (`FDSP_SL_ADDR` / `FDSP_SL_P0..P4` /
 `FDSP_SL_UPDATE`), which swap all five coefficients of a biquad atomically so a
 mid-update frame never runs on a half-written filter. Coefficients are Q5.27
-fixed point (1.0 = `0x08000000`), ordered `b0, b1, b2, a1, a2`.
+fixed point (1.0 = `0x08000000`), ordered `b0, b1, b2, -a1, -a2` — the
+FastDSP slots store the feedback taps negated (verified by decoding upstream's
+shipped banks; see `tools/dsp/fdsp_bank_decode.py` in the firmware repo).
 
 Why this shape matters: hear-through only works if mic→speaker latency is well
 under a millisecond, otherwise the processed sound comb-filters against sound
