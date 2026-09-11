@@ -52,6 +52,27 @@ Verified on physical hardware: a `TONE_START` with no follow-up produces
 ms, auto-silencing` in the firmware's log, and the tone stops with zero
 further input. See `haven-zephyr-app` commit `a8f38cf`.
 
+## Not yet calibrated — read this before trusting any dB number
+
+Every level in this document and in `src/constants/safety.ts` — the 85 dB
+ceiling, the 30 dB start, the 2 dB steps, the 70 dB sensitivity threshold —
+is currently a **nominal** value. It is the number the app sends; it is not
+yet a measured sound pressure level at the eardrum. Nothing in the app or
+firmware has been calibrated against real acoustic output because the codec
+audio path has not run on hardware yet, and the mapping from a commanded
+level to dB SPL depends on the DSP gain structure, the DAC/headphone-amp
+setting, the speaker, and the ear seal — none of which are known yet.
+
+Until that calibration exists (measured on real hardware with a calibrated
+microphone or an ear simulator, then baked into the constants or a
+per-device mapping), the invariants above still hold *structurally* — the
+app cannot command more than the ceiling, the watchdogs still fire — but the
+ceiling itself has no verified physical meaning. Treat every real-ear test
+before calibration as unsafe, and treat calibration as the first thing to do
+once a tone plays on hardware. This is the single most important open item
+in the project from a safety standpoint. None of this weakens any invariant;
+it says what the invariants are currently made of.
+
 ## Related choices
 
 - LDL results are interpreted conservatively: only frequencies uncomfortable

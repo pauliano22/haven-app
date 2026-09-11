@@ -18,11 +18,15 @@ cold (human or AI), read in this order:
 
 ## Quick facts
 
-- **Repos** (siblings in `~/projects/active/`): `haven_app` (this one, Expo/React Native),
-  `nrf52_haven_fw` (nRF Connect SDK firmware), plus legacy prototypes
-  `teensy_hearing_shield` and `tinnitus_dsp`.
-- **Production hardware**: nRF52 (BLE peripheral + control master) driving an
-  Analog Devices **ADAU1860** audio DSP over I2C/SPI.
+- **Repos** (submodules of [haven-workspace](https://github.com/pauliano22/haven-workspace)):
+  `haven-app` (this one, Expo/React Native), `haven-zephyr-app` (nRF Connect
+  SDK firmware), plus legacy prototypes `haven-legacy-teensy` and
+  `haven-legacy-dsp-sandbox`.
+- **Production hardware**: nRF5340 (BLE peripheral + I2C control master)
+  driving an Analog Devices **ADAU1860** codec/DSP over I2C (address 0x64).
+  The audio path — PDM mic → FastDSP biquads → DAC → speaker — lives
+  entirely inside the codec; the nRF only writes coefficients. A stock
+  OpenEarable 2.0 unit is this hardware.
 - **BLE device name**: `Haven` — defined in `src/constants/ble.ts` here and
   `prj.conf` in the firmware. **They must always change together.**
 - **Run the app**: `npm run web` for the browser preview (renders in a centered
