@@ -2,7 +2,9 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -12,6 +14,7 @@ import {
   Q_DEFAULT,
 } from '../constants/dsp';
 import { useDebouncedCallback } from '../hooks/useDebounce';
+import { getFilterProfile, saveFilterProfile } from '../services/FilterStore';
 import { FilterBand, WireFilterBand } from '../types';
 import { useBle } from './BleContext';
 
@@ -52,17 +55,72 @@ const FilterContext = createContext<FilterContextValue | null>(null);
  * editing), and Hearing (applying LDL results) — and every send to the device.
  */
 export function FilterProvider({ children }: { children: React.ReactNode }) {
-  const { sendPayload } = useBle();
+  const { status, sendPayload } = useBle();
 
   const [bands, setBands] = useState<FilterBand[]>(() => [
     { id: makeId(), f0: F0_DEFAULT, q: Q_DEFAULT, attenDb: ATTEN_DEFAULT_DB },
   ]);
   const [selectedId, setSelectedId] = useState<string>(bands[0].id);
   const [bypass, setBypassState] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   const debouncedSend = useDebouncedCallback((next: FilterBand[]) => {
     sendPayload({ type: 'MULTI_FILTER', bands: toWireBands(next) });
   }, 100);
+
+  // Same reasoning as debouncedSend above: a slider drag fires many bands
+  // updates per second, and every one of those would otherwise be a
+  // separate AsyncStorage write.
+  const debouncedSave = useDebouncedCallback((nextBands: FilterBand[], nextBypass: boolean) => {
+    saveFilterProfile({ bands: nextBands, bypass: nextBypass });
+  }, 400);
+
+  // Load the last saved profile once on startup, so bands/bypass survive
+  // an app relaunch instead of resetting to the single default band.
+  useEffect(() => {
+    getFilterProfile().then((profile) => {
+      if (profile) {
+        setBands(profile.bands);
+        setSelectedId(profile.bands[0].id);
+        setBypassState(profile.bypass);
+      }
+      setHydrated(true);
+    });
+    // Runs once — deliberately not re-triggered by anything else.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist on every change (debounced), once hydration has settled (so we
+  // never overwrite the saved profile with the transient pre-hydration
+  // default).
+  useEffect(() => {
+    if (!hydrated) return;
+    debouncedSave(bands, bypass);
+    // debouncedSave is stable (useDebouncedCallback wraps it in a ref), so
+    // omitting it here doesn't skip any real dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, bands, bypass]);
+
+  // Push the saved profile to a freshly connected device once per
+  // connection, so reconnecting doesn't leave the device on whatever it
+  // last had (or its own default) instead of the user's chosen settings.
+  const syncedThisConnectionRef = useRef(false);
+  useEffect(() => {
+    if (status !== 'connected') {
+      syncedThisConnectionRef.current = false;
+      return;
+    }
+    if (!hydrated || syncedThisConnectionRef.current) return;
+    syncedThisConnectionRef.current = true;
+    if (bypass) {
+      sendPayload({ type: 'BYPASS', enabled: true });
+    } else {
+      sendPayload({ type: 'MULTI_FILTER', bands: toWireBands(bands) });
+    }
+    // Deliberately re-checks bands/bypass only via the ref guard above —
+    // this should fire once per connection, not on every subsequent edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, hydrated]);
 
   const selectBand = useCallback((id: string) => setSelectedId(id), []);
 

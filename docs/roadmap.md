@@ -30,6 +30,9 @@ dev-client build section) before considering it done.
   with an independent firmware level ceiling (85 dB, separate from this
   app's own cap) and a 3s keep-alive watchdog — verified on physical
   hardware. See [safety.md](safety.md). `haven-zephyr-app` commit `a8f38cf`.
+- LDL result history/trend view (AsyncStorage-backed).
+- Filter bands/bypass persist across app launches (AsyncStorage), and
+  re-sync to a freshly connected device once per connection.
 
 ## Next — firmware / hardware bring-up (blocking real audio)
 
@@ -52,8 +55,6 @@ dev-client build section) before considering it done.
   somewhere in the new UI (the old TX monitor was intentionally removed as
   too engineering-facing — replace with a quiet toast or Home-screen state,
   not a JSON dump).
-- Persist bands/presets across launches (AsyncStorage) and store LDL results
-  history.
 - Calibration story: `level_db` is currently nominal — map commanded dB to
   real acoustic output once hardware exists.
 - Tests: unit-test `BleConnectionManager` queue/reconnect logic and
