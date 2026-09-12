@@ -48,6 +48,14 @@ dev-client build section) before considering it done.
   band's `attenDb` by a fixed 3dB step and gates itself to once per 24h.
   Deliberately framed as a simple nudge, not a real per-user ML model —
   see `constants/comfort.ts`.
+- **Tolerance-building plan** (`TolerancePlanCard`, Tune screen): an
+  opt-in, one-band-at-a-time plan that reduces `attenDb` by a fixed 3dB
+  step per week, only ever on an explicit tap (never automatic). Honest
+  about what Haven's hardware can and can't do here — it has no broadband
+  noise generator, so this can't be real sound-generator-based hyperacusis
+  therapy; what it *can* do is help counter over-protection (a real,
+  documented risk) by gradually easing softening back down. See
+  `constants/tolerance.ts`.
 
 ## Next — firmware / hardware bring-up (blocking real audio)
 

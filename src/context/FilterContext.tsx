@@ -42,6 +42,9 @@ interface FilterContextValue {
   removeBand: (id: string) => void;
   /** Patch the selected band and (debounced) push the new set to the device. */
   updateSelected: (patch: Partial<Pick<FilterBand, 'f0' | 'q' | 'attenDb'>>) => void;
+  /** Patch an arbitrary band by id (e.g. a tolerance-plan step on a band that
+   * isn't currently selected on Tune) and (debounced) push the new set. */
+  updateBand: (id: string, patch: Partial<Pick<FilterBand, 'f0' | 'q' | 'attenDb'>>) => void;
   /** Toggle protection: true = bypassed (paused), false = filtering. */
   setBypass: (enabled: boolean) => void;
   /** Replace all bands (LDL results) and push immediately. */
@@ -153,15 +156,20 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
     [bypass, debouncedSend],
   );
 
-  const updateSelected = useCallback(
-    (patch: Partial<Pick<FilterBand, 'f0' | 'q' | 'attenDb'>>) => {
+  const updateBand = useCallback(
+    (id: string, patch: Partial<Pick<FilterBand, 'f0' | 'q' | 'attenDb'>>) => {
       setBands(prev => {
-        const next = prev.map(b => (b.id === selectedId ? { ...b, ...patch } : b));
+        const next = prev.map(b => (b.id === id ? { ...b, ...patch } : b));
         if (!bypass) debouncedSend(next);
         return next;
       });
     },
-    [selectedId, bypass, debouncedSend],
+    [bypass, debouncedSend],
+  );
+
+  const updateSelected = useCallback(
+    (patch: Partial<Pick<FilterBand, 'f0' | 'q' | 'attenDb'>>) => updateBand(selectedId, patch),
+    [selectedId, updateBand],
   );
 
   const setBypass = useCallback(
@@ -199,10 +207,11 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       addBand,
       removeBand,
       updateSelected,
+      updateBand,
       setBypass,
       applyBands,
     }),
-    [bands, selectedId, selectedBand, bypass, selectBand, addBand, removeBand, updateSelected, setBypass, applyBands],
+    [bands, selectedId, selectedBand, bypass, selectBand, addBand, removeBand, updateSelected, updateBand, setBypass, applyBands],
   );
 
   return <FilterContext.Provider value={value}>{children}</FilterContext.Provider>;
