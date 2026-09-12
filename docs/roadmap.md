@@ -80,8 +80,10 @@ dev-client build section) before considering it done.
   not a JSON dump).
 - Calibration story: `level_db` is currently nominal — map commanded dB to
   real acoustic output once hardware exists.
-- Tests: unit-test `BleConnectionManager` queue/reconnect logic and
-  `useLdlTone` invariants.
+- ~~Tests: unit-test `BleConnectionManager` queue/reconnect logic and
+  `useLdlTone` invariants.~~ Done — `BleConnectionManager.test.ts` (7 tests:
+  offline queue/flush, payload coalescing, reconnect-vs-user-disconnect) and
+  `useLdlTone.test.ts` (6 tests), both passing.
 
 ## Known loose ends
 
