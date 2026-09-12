@@ -70,6 +70,18 @@ export interface LdlRun {
   results: LdlResult[];
 }
 
+/** One completed "match your sound" run, persisted for history/trend display. */
+export interface MatchRun {
+  /** ms since epoch, when the run completed. */
+  timestamp: number;
+  /** Matched pitch, Hz. */
+  f0: number;
+  /** Matched loudness, dB. */
+  loudnessDb: number;
+  /** Optional self-rated bother, 0-10 — null if the user skipped it. */
+  botherScore: number | null;
+}
+
 export interface BenchFreqRange {
   lowerHz: number;
   upperHz: number;

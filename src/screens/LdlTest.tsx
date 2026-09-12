@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, SafeAreaView, ScrollView, StyleSheet, Text } from 'react-native';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ConnectionBar } from '../components/ConnectionBar';
 import { LdlHistory } from '../components/ldl/LdlHistory';
 import { LdlIntro } from '../components/ldl/LdlIntro';
@@ -47,7 +47,11 @@ function resultsToBands(results: LdlResult[]): FilterBand[] {
     }));
 }
 
-export function LdlTest() {
+interface Props {
+  onBack?: () => void;
+}
+
+export function LdlTest({ onBack }: Props) {
   const { status } = useBle();
   const { applyBands } = useFilters();
   const { theme } = useTheme();
@@ -143,56 +147,57 @@ export function LdlTest() {
   }, [results, applyBands]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: c.bg }]}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.title, { color: c.textPrimary }]}>Hearing test</Text>
-        <Text style={[styles.subtitle, { color: c.textSecondary }]}>
-          Find the sounds that bother you, safely.
-        </Text>
+    <View>
+      {onBack && (
+        <TouchableOpacity onPress={onBack} style={styles.backLink}>
+          <Text style={[styles.backText, { color: c.textSecondary }]}>‹ All hearing tools</Text>
+        </TouchableOpacity>
+      )}
+      <Text style={[styles.title, { color: c.textPrimary }]}>Loudness comfort test</Text>
+      <Text style={[styles.subtitle, { color: c.textSecondary }]}>
+        Find the sounds that bother you, safely.
+      </Text>
 
-        <ConnectionBar />
+      <ConnectionBar />
 
-        {phase === 'intro' && (
-          <>
-            <LdlIntro connected={connected} onStart={handleBegin} />
-            <LdlHistory runs={history} />
-          </>
-        )}
+      {phase === 'intro' && (
+        <>
+          <LdlIntro connected={connected} onStart={handleBegin} />
+          <LdlHistory runs={history} />
+        </>
+      )}
 
-        {phase === 'testing' && (
-          <LdlToneStep
-            f0={frequencies[stepIndex]}
-            stepIndex={stepIndex}
-            stepCount={frequencies.length}
-            toneState={toneState}
-            levelDb={levelDb}
-            onUncomfortable={handleUncomfortable}
-            onSkip={handleSkip}
-            onAbort={handleAbort}
-          />
-        )}
+      {phase === 'testing' && (
+        <LdlToneStep
+          f0={frequencies[stepIndex]}
+          stepIndex={stepIndex}
+          stepCount={frequencies.length}
+          toneState={toneState}
+          levelDb={levelDb}
+          onUncomfortable={handleUncomfortable}
+          onSkip={handleSkip}
+          onAbort={handleAbort}
+        />
+      )}
 
-        {phase === 'results' && (
-          <LdlResults
-            results={results}
-            onApply={handleApply}
-            onRedo={handleBegin}
-            onClose={() => setPhase('intro')}
-          />
-        )}
-      </ScrollView>
-    </SafeAreaView>
+      {phase === 'results' && (
+        <LdlResults
+          results={results}
+          onApply={handleApply}
+          onRedo={handleBegin}
+          onClose={() => setPhase('intro')}
+        />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-  },
-  scroll: {
-    paddingHorizontal: 24,
-    paddingTop: 18,
-    paddingBottom: 32,
+  backLink: { marginBottom: 10 },
+  backText: {
+    fontSize: 13,
+    fontFamily: SANS_FONT,
+    fontWeight: '600',
   },
   title: {
     fontFamily: SERIF_FONT,
