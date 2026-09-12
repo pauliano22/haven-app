@@ -10,9 +10,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ComfortCheckIn, ComfortDirection } from '../components/ComfortCheckIn';
 import { ConnectionBar } from '../components/ConnectionBar';
 import { SectionRule } from '../components/SectionRule';
 import { VisualizerCurve } from '../components/VisualizerCurve';
+import { COMFORT_ADJUST_STEP_DB } from '../constants/comfort';
 import {
   ATTEN_MAX_DB,
   ATTEN_MIN_DB,
@@ -26,7 +28,12 @@ import { ColorPalette, RADIUS, SANS_FONT, SERIF_FONT } from '../constants/theme'
 import { useBle } from '../context/BleContext';
 import { useFilters } from '../context/FilterContext';
 import { useTheme } from '../context/ThemeContext';
+import { useComfortPrompt } from '../hooks/useComfortPrompt';
 import { useDebouncedCallback } from '../hooks/useDebounce';
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
 
 function formatFrequency(hz: number): string {
   if (hz >= 1000) return `${(hz / 1000).toFixed(2)} kHz`;
@@ -51,10 +58,24 @@ function haptic(style: Haptics.ImpactFeedbackStyle) {
 export function Tune() {
   const { bands, selectedId, selectedBand, bypass, selectBand, addBand, removeBand, updateSelected } =
     useFilters();
-  const { benchAvailable, benchVolume, benchFreqRange, setBenchVolume, setBenchFreqRange } = useBle();
+  const { status, benchAvailable, benchVolume, benchFreqRange, setBenchVolume, setBenchFreqRange } =
+    useBle();
   const { theme } = useTheme();
   const c = theme.colors;
   const styles = useMemo(() => makeStyles(c), [c]);
+
+  // A simple nudge, not a real per-user model -- see constants/comfort.ts.
+  const { shouldPrompt, recordResponse } = useComfortPrompt(status === 'connected' && !bypass);
+  const handleComfortRespond = useCallback(
+    (direction: ComfortDirection) => {
+      if (direction !== 'same') {
+        const delta = direction === 'weaker' ? -COMFORT_ADJUST_STEP_DB : COMFORT_ADJUST_STEP_DB;
+        updateSelected({ attenDb: clamp(selectedBand.attenDb + delta, ATTEN_MIN_DB, ATTEN_MAX_DB) });
+      }
+      recordResponse();
+    },
+    [selectedBand.attenDb, updateSelected, recordResponse],
+  );
 
   // ── nRF5340 DK bench controls — only appear when connected to bench
   // firmware (Haven Audio Control Service), never on production hardware.
@@ -203,6 +224,8 @@ export function Tune() {
             </TouchableOpacity>
           )}
         </ScrollView>
+
+        {shouldPrompt && <ComfortCheckIn onRespond={handleComfortRespond} />}
 
         {/* ── Frequency ────────────────────────────────  */}
         <View style={styles.card}>
