@@ -47,11 +47,17 @@ hypothesis, and the product should be built to test it (see §3).
 
 Design consequences:
 - The LDL test finds *discomfort* frequencies, which is the right tool for
-  hyperacusis (§1b). It is **not** a tinnitus-pitch match. TMNMT needs the
-  tinnitus frequency, found by a pitch-matching procedure (present tones,
-  user picks the closest; iterate; check for octave confusion). Haven has
-  the tone generator to do this — it is a different flow from the LDL
-  ramp and needs its own screen and its own safety review.
+  hyperacusis (§1b). It is **not** a tinnitus-pitch match. **Implemented
+  (merged 2026-09-12): `PitchMatchTest` / `src/utils/pitchMatch.ts` — adaptive
+  two-alternative forced choice, bisection in log-frequency, 5–8 trials of
+  1.4 s bursts at a fixed 55 dB nominal.** That is the right procedure; two
+  review notes against the literature: (1) there is no octave-confusion
+  check — tinnitus pitch matches are notoriously off by an octave, so add a
+  final trial comparing the match against f/2 and 2f; (2) 55 dB is a fixed
+  nominal level presented up to 8 kHz to people whose LDL may be *below*
+  55 dB at exactly those frequencies — if an LDL history exists, cap the
+  match level at (lowest measured LDL − 10 dB). Both are small changes to
+  `pitchMatch.ts` / `constants/safety.ts`.
 - Published TMNMT notches are wide (one octave around the tinnitus pitch,
   i.e. Q ≈ 1.4), not the narrow Q = 10 default in `dsp.ts`. The tinnitus
   use case wants a different preset.
@@ -86,13 +92,18 @@ Design consequences (these are the product-defining ones):
 - Position dampening as **situational relief** — the dentist's drill, the
   restaurant, the commute — not a permanent full-time filter. The Home
   screen's protection orb should make "off" the resting state.
-- Build a **taper**: attenuation that automatically eases (e.g. −1 dB/week)
-  with the user's consent, moving toward the graduated-exposure model the
-  evidence supports, rather than away from it.
-- Treat the app's LDL history (already implemented) as a **safety signal**:
-  if a user's LDL at a notched frequency *falls* over time while using
-  Haven, surface it and suggest reducing use. This turns the calibration
-  test into an outcome monitor.
+- Build a **taper**. **Implemented (merged 2026-09-12) as the opt-in
+  tolerance-building plan (`useTolerancePlan`, −3 dB per week, every step
+  user-confirmed, stop anytime).** That is the right shape — graduated,
+  consented, reversible. One addition: re-run the LDL at the plan's
+  frequency every few steps and pause the plan automatically if the LDL
+  falls (next bullet).
+- Treat the app's LDL history as a **safety signal**. The history exists
+  (`LdlHistoryStore`, 20 runs, trend arrow) but nothing yet compares a run
+  against the *active bands*: implement the check — if the LDL at a notched
+  `f0` drops ≥ 10 dB from that user's baseline, surface it and offer to
+  pause dampening there. This turns the calibration test into an outcome
+  monitor and is the one piece of §1b's evidence the app doesn't yet act on.
 - Surface wear time. A device that is "always on" without the user noticing
   is the failure mode Formby warns about.
 - Never attenuate more than needed: default `atten_db` should derive from

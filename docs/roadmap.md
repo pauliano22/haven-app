@@ -80,39 +80,38 @@ code rather than by new work:
 
 What actually remains:
 
-1. **Codec driver port** (`haven-zephyr-app`, see its ADAU1860 driver PR):
-   power sequencing (`DAC_ENABLE` GPIO + 1.8 V load switch + 35 ms settle),
-   PLL/clock setup, DMIC → decimator routing, DAC/headphone amp, FastDSP
-   program load, and `adau1860_control_apply_filters()` as five safeloads.
-   Replaces every `TODO(hw-bringup)` stub.
-2. **A DMIC-input FastDSP program.** Upstream's program takes I2S audio from
-   the phone as its input; hear-through needs the PDM mic as input. In
-   Lark Studio the input source is a choice in the FastDSP schematic, and
-   "Download to Target" produces the `uint32_t` memory images the firmware
-   loads (UG-2017). Alternative: the codec's hardware EQ engine, whose
-   input is selected by `EQ_ROUTE` (UG-2017 confirms the register's role;
-   untested as a hear-through path). Also decide the FastDSP frame rate —
-   upstream clocks it from the 192 kHz DMIC stream, UG-2017 requires the
-   filter fs to match `FDSP_RATE_SOURCE`, so coefficient math must use the
-   same rate.
-3. **Tone path for the LDL test.** Upstream has an nRF-side I2S tone
-   generator feeding the codec (nRF is I2S master); wire
-   `adau1860_control_set_tone()` / `set_tone_level()` / `stop_tone()` to it
-   and to the FastDSP volume/mixer slot. `tone_safety.c`'s clamp + watchdog
-   layer is already done.
+1. **Codec driver port** — done as `haven-zephyr-app` PR #9 (awaiting
+   review): power sequencing (`DAC_ENABLE` GPIO + `V_LS` load switch + 35 ms
+   settle), PLL/clock setup, DMIC → decimator routing, DAC/headphone amp,
+   FastDSP program load, `apply_filters()` as five Q5.27 safeloads with
+   negated feedback taps, in-tree `openearable_v2` board. Compiles clean for
+   both board targets on NCS v3.4.0 (fork CI, zero warnings); never run on a
+   codec yet.
+2. ~~A DMIC-input FastDSP program~~ — **not needed for first audio.** PR #9
+   decoded upstream's shipped banks: bank 1 is OpenEarable's *transparency*
+   mode, i.e. the program is already mic → 5 biquads → DAC hear-through
+   (`AUDIO_MODE_TRANSPARENCY` in upstream `hw_codec.h`). What remains on the
+   DSP side is Haven-specific tuning in Lark Studio (limiter, DMIC gain) and
+   confirming the program's internal routing on hardware.
+3. **Tone path for the LDL / pitch-match tests** — done as PR #10 (stacked
+   on #9): nRF-side I2S sine (48 kHz, 16-bit, click-free level ramps) into
+   the codec, DAC routed to the I2S input while a tone plays and restored
+   after. `tone_safety.c`'s clamp + watchdog untouched. Compiles clean; the
+   `HAVEN_TONE_FULL_SCALE_DB` mapping is nominal until item 4.
 4. **Acoustic calibration of `level_db` → dB SPL — the top open safety
    item.** Every "85 dB" in this app and the firmware is a *nominal* number
    with no measured relationship to sound pressure at the eardrum yet. Until
    commanded level is measured on real hardware (calibrated mic or ear
    simulator) and the constants in `src/constants/safety.ts` are mapped to
    it, the ceiling is a label, not a limit. See [safety.md](safety.md).
-5. **Hardware (nothing here is cheap):** lower-cost bench is an nRF5340 DK
-   + ADI EVAL-ADAU1860EBZ (~$535 total; the eval board has DMIC and I2S
-   headers so it wires like the real board, and runs Lark Studio). The
-   real thing is a stock OpenEarable 2.0 Developer Starter Bundle (€2,348)
-   flashed via J-Link. The custom PCB is off the critical path until there's
-   a reason to diverge from stock and its review findings are fixed.
-
+5. **Hardware (nothing here is cheap):** three real options now. (a) nRF5340
+   DK + ADI EVAL-ADAU1860EBZ (~$535; DMIC and I2S headers, runs Lark
+   Studio). (b) A stock OpenEarable 2.0 Developer Starter Bundle (€2,348),
+   flashed via J-Link. (c) **The 5× rescaled bench board in
+   `haven-dev-board-kicad`** — routing-complete with a fabrication guide, but
+   read `HAVEN_HARDWARE_REVIEW.md` §0.7 first: the rescale left both crystals
+   and every decoupling cap 8–50 mm from their chips, a placement-only fix
+   that is cheap before PCBA and impossible after.
 ## Next — app
 
 - Verify the redesign on a real iPhone via a dev-client build (see
