@@ -16,6 +16,16 @@ dev-client build section) before considering it done.
   (auto-reconnect, offline queue, MTU 247), LDL guided test with hard safety
   limits, rename to Haven, full visual + IA redesign — Home/Tune/Hearing
   tabs, Evergreen/Ivory theme, shared `FilterContext`.
+- **"Match your sound"** (2026-08-30): self-guided tinnitus pitch/loudness
+  matching, adaptive 2AFC bisection in log-frequency space (`src/utils/pitchMatch.ts`),
+  converging in 5-8 short comparison tones. Feeds straight into a
+  personalized softening band (same `applyBands` path as the LDL test).
+  Includes an optional 0-10 "how bothersome right now" check-in and a
+  persisted run history (`MatchHistoryStore`), same pattern as LDL history.
+  The Hearing tab is now a two-tool picker (loudness comfort test / match
+  your sound) instead of a single LDL screen. Framed deliberately as
+  self-management, not a cure — see the product notes this was scoped from
+  for why (notched sound therapy has weak/mixed clinical evidence).
 - **Brand**: 7 logo concepts designed and reviewed (see
   [design-system.md](design-system.md)#logo). App icon shipped — Concept D
   "Soft H" across every platform size/format, `assets/`. Marketing site
@@ -31,6 +41,22 @@ dev-client build section) before considering it done.
   with an independent firmware level ceiling (85 dB, separate from this
   app's own cap) and a 3s keep-alive watchdog — verified on physical
   hardware. See [safety.md](safety.md). `haven-zephyr-app` commit `a8f38cf`.
+- LDL result history/trend view (AsyncStorage-backed).
+- Filter bands/bypass persist across app launches (AsyncStorage), and
+  re-sync to a freshly connected device once per connection.
+- **Comfort check-in** (`ComfortCheckIn`, Tune screen): an occasional
+  ("too strong / just right / not enough") prompt that nudges the selected
+  band's `attenDb` by a fixed 3dB step and gates itself to once per 24h.
+  Deliberately framed as a simple nudge, not a real per-user ML model —
+  see `constants/comfort.ts`.
+- **Tolerance-building plan** (`TolerancePlanCard`, Tune screen): an
+  opt-in, one-band-at-a-time plan that reduces `attenDb` by a fixed 3dB
+  step per week, only ever on an explicit tap (never automatic). Honest
+  about what Haven's hardware can and can't do here — it has no broadband
+  noise generator, so this can't be real sound-generator-based hyperacusis
+  therapy; what it *can* do is help counter over-protection (a real,
+  documented risk) by gradually easing softening back down. See
+  `constants/tolerance.ts`.
 
 ## Next — firmware / hardware bring-up (blocking real audio)
 
@@ -96,8 +122,6 @@ What actually remains:
   somewhere in the new UI (the old TX monitor was intentionally removed as
   too engineering-facing — replace with a quiet toast or Home-screen state,
   not a JSON dump).
-- Persist bands/presets across launches (AsyncStorage) and store LDL results
-  history.
 - Calibration story: `level_db` is currently nominal — map commanded dB to
   real acoustic output once hardware exists.
 - Tests: unit-test `BleConnectionManager` queue/reconnect logic and

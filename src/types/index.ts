@@ -70,6 +70,33 @@ export interface LdlRun {
   results: LdlResult[];
 }
 
+/** One completed "match your sound" run, persisted for history/trend display. */
+export interface MatchRun {
+  /** ms since epoch, when the run completed. */
+  timestamp: number;
+  /** Matched pitch, Hz. */
+  f0: number;
+  /** Matched loudness, dB. */
+  loudnessDb: number;
+  /** Optional self-rated bother, 0-10 — null if the user skipped it. */
+  botherScore: number | null;
+}
+
+/**
+ * An active tolerance-building plan for one band: gradually reduce its
+ * attenDb over time, one user-confirmed step at a time. See
+ * constants/tolerance.ts for why this exists and what it deliberately
+ * doesn't do.
+ */
+export interface TolerancePlan {
+  bandId: string;
+  /** Hz, captured at plan start purely for display -- the plan always acts on bandId. */
+  f0: number;
+  startedAt: number;
+  lastStepAt: number;
+  stepsCompleted: number;
+}
+
 export interface BenchFreqRange {
   lowerHz: number;
   upperHz: number;

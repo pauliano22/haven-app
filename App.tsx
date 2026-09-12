@@ -7,8 +7,8 @@ import { BleProvider } from './src/context/BleContext';
 import { FilterProvider } from './src/context/FilterContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { Tab } from './src/navigation';
+import { Hearing } from './src/screens/Hearing';
 import { Home } from './src/screens/Home';
-import { LdlTest } from './src/screens/LdlTest';
 import { Tune } from './src/screens/Tune';
 
 /**
@@ -47,7 +47,7 @@ function Root() {
           <FadeIn key={tab}>
             {tab === 'home' && <Home onNavigate={setTab} />}
             {tab === 'tune' && <Tune />}
-            {tab === 'hearing' && <LdlTest />}
+            {tab === 'hearing' && <Hearing />}
           </FadeIn>
         </View>
         <TabBar active={tab} onSelect={setTab} />
