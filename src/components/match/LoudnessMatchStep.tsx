@@ -9,6 +9,10 @@ import { SectionRule } from '../SectionRule';
 interface Props {
   f0: number;
   loudnessDb: number;
+  /** Slider ceiling — MATCH_LOUDNESS_MAX_DB, or lower when capped by the user's LDL history. */
+  maxDb?: number;
+  /** Shown under the instruction when the range has been lowered for this user. */
+  levelNote?: string;
   playing: boolean;
   onLoudnessChange: (value: number) => void;
   onPreview: () => void;
@@ -23,6 +27,8 @@ function formatFreq(hz: number): string {
 export function LoudnessMatchStep({
   f0,
   loudnessDb,
+  maxDb = MATCH_LOUDNESS_MAX_DB,
+  levelNote,
   playing,
   onLoudnessChange,
   onPreview,
@@ -40,6 +46,9 @@ export function LoudnessMatchStep({
           Now match how loud it seems. Move the slider, then play the sound
           at {formatFreq(f0)} to compare.
         </Text>
+        {levelNote && (
+          <Text style={[styles.note, { color: c.textSecondary }]}>{levelNote}</Text>
+        )}
 
         <Text style={[styles.loudnessValue, { color: c.accent }]}>
           {Math.round(loudnessDb)} dB
@@ -47,7 +56,7 @@ export function LoudnessMatchStep({
         <Slider
           style={styles.slider}
           minimumValue={MATCH_LOUDNESS_MIN_DB}
-          maximumValue={MATCH_LOUDNESS_MAX_DB}
+          maximumValue={Math.min(MATCH_LOUDNESS_MAX_DB, maxDb)}
           step={1}
           value={loudnessDb}
           onValueChange={onLoudnessChange}
@@ -114,6 +123,13 @@ const styles = StyleSheet.create({
     fontFamily: SERIF_FONT,
     lineHeight: 22,
     marginBottom: 14,
+  },
+  note: {
+    fontSize: 12,
+    fontFamily: SANS_FONT,
+    lineHeight: 17,
+    marginTop: -6,
+    marginBottom: 12,
   },
   loudnessValue: {
     fontSize: 36,

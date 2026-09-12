@@ -56,6 +56,14 @@ dev-client build section) before considering it done.
   therapy; what it *can* do is help counter over-protection (a real,
   documented risk) by gradually easing softening back down. See
   `constants/tolerance.ts`.
+- **Clinical-review follow-ups** (2026-09-11), from `docs/clinical-basis.md`:
+  an **octave check** after pitch bisection (`OctaveCheckStep`, match vs f/2
+  and 2f; `MatchRun.octaveCorrected`), an **LDL-aware match level**
+  (`utils/matchLevel.ts` caps pitch bursts and the loudness slider at the
+  user's lowest recent LDL − 10 dB), and an **LDL drift warning** on Tune
+  (`utils/ldlDrift.ts`, `LdlDriftCard`: comfort level at a softened frequency
+  fell ≥ 10 dB since the first test → offer to pause that band; never
+  automatic). See `docs/safety.md`.
 
 ## Next — firmware / hardware bring-up (blocking real audio)
 

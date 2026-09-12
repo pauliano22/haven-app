@@ -59,6 +59,24 @@ export const MATCH_PITCH_MAX_TRIALS = 8;
 export const MATCH_PITCH_CONVERGENCE_RATIO = 1.15;
 
 /**
+ * LDL-aware cap on the match tones. MATCH_PITCH_TONE_LEVEL_DB is comfortable
+ * for normal hearing, but a hyperacusis user's loudness discomfort level can
+ * sit *below* 55 dB at exactly the frequencies being tested. When a completed
+ * comfort test exists, match tones are capped this far below the lowest LDL
+ * it measured (see utils/matchLevel.ts and docs/clinical-basis.md §1a). This
+ * only ever lowers a level — never raises one past the constants above.
+ */
+export const MATCH_LDL_MARGIN_DB = 10;
+
+/**
+ * LDL drift warning. If a user's comfort level at a frequency they are
+ * actively softening has fallen this far below their first measurement, the
+ * app surfaces it and offers to pause that band — the over-protection signal
+ * from Formby et al. 2003 (docs/clinical-basis.md §1b). Never acts on its own.
+ */
+export const LDL_DRIFT_WARN_DB = 10;
+
+/**
  * Clamp a requested tone level into the permitted range.
  * All tone payload construction MUST route through this function.
  */

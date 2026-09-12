@@ -63,6 +63,36 @@ loudness-match slider is bounded to `MATCH_LOUDNESS_MIN_DB`–`MATCH_LOUDNESS_MA
 `TONE_LEVEL` watchdog, so a single `TONE_START`/`TONE_STOP` pair per burst is
 safe on its own. Same link-loss/unmount kill behavior as `useLdlTone`.
 
+### LDL-aware match level (`utils/matchLevel.ts`)
+
+55 dB is comfortable for normal hearing, but a hyperacusis user's loudness
+discomfort level can sit *below* 55 dB at exactly the frequencies being
+matched — and this flow presents tones up to 8 kHz. So when a completed
+comfort test exists, the match tones and the loudness slider's ceiling are
+capped at `lowest measured LDL − MATCH_LDL_MARGIN_DB` (10 dB), never below
+`MATCH_LOUDNESS_MIN_DB`. The cap uses the **most recent** run that measured
+anything (LDLs move; that is the point of the tolerance plan), a run that was
+comfortable to the ceiling everywhere imposes no cap, and the helper can only
+ever *lower* a level — it never raises one past the constants above. Every
+value still passes through `clampToneLevel()` at the payload boundary. The
+user sees a one-line note ("Kept quieter than usual…") so the quieter tones
+aren't mistaken for a fault. See `docs/clinical-basis.md` §1a.
+
+### Octave check (`utils/pitchMatch.ts`)
+
+Not a level change, but a tone-flow change worth recording here: after the
+bisection converges, one extra step plays the match against f/2 and 2f at the
+same capped level. Same `usePreviewTone` burst path, same watchdog margin.
+
+## LDL drift warning (`utils/ldlDrift.ts`)
+
+Detection, not action. If the user's comfort level at a frequency they are
+actively softening has fallen `LDL_DRIFT_WARN_DB` (10 dB) or more below their
+first measurement, Tune shows a card offering to pause that band. Pausing
+sets `attenDb` to 0 (the same floor the tolerance plan steps toward); nothing
+happens without a tap. This is the over-protection signal from Formby et al.
+2003 (`docs/clinical-basis.md` §1b) turned into something the app can notice.
+
 ## Related choices
 
 - LDL results are interpreted conservatively: only frequencies uncomfortable
