@@ -18,7 +18,10 @@ const WEBSITE_URL = 'https://pauliano22.github.io/haven-website/';
 import { useBle } from '../context/BleContext';
 import { useFilters } from '../context/FilterContext';
 import { useTheme } from '../context/ThemeContext';
+import { useConsent } from '../hooks/useConsent';
+import { useNof1Trial } from '../hooks/useNof1Trial';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { Nof1Card } from '../components/nof1/Nof1Card';
 import { Tab } from '../navigation';
 
 function formatChip(hz: number): string {
@@ -40,6 +43,30 @@ export function Home({ onNavigate }: Props) {
   const isConnected = status === 'connected';
   const isBusy = status === 'scanning' || status === 'connecting' || status === 'reconnecting';
   const protecting = isConnected && !bypass;
+
+  // ── N-of-1 trial (utils/nof1.ts) ─────────────────────────────────────────
+  // The trial is a *suggestion* the app follows once per connection: if
+  // today's arm disagrees with the current protection state and the user
+  // hasn't already overridden it today, set it. A tap on the orb always
+  // wins and is recorded as an override, never blocked.
+  const { consented } = useConsent();
+  const trial = useNof1Trial();
+  const showTrial = consented && trial.loaded && trial.trial !== null;
+  const appliedTrialRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isConnected) {
+      appliedTrialRef.current = null;
+      return;
+    }
+    if (!showTrial || !trial.active || trial.todayAssignment === null || trial.todayOverride) return;
+    const key = `${trial.trial?.startDay}:${trial.dayNumber}`;
+    if (appliedTrialRef.current === key) return;
+    appliedTrialRef.current = key;
+    const wantBypass = trial.todayAssignment === 'bypass';
+    if (wantBypass !== bypass) setBypass(wantBypass);
+    // Runs once per connection per trial day; bypass/setBypass are read at that moment on purpose.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, showTrial, trial.active, trial.todayAssignment, trial.todayOverride, trial.dayNumber]);
 
   // The orb breathes only while protecting — stillness itself signals "paused".
   const breath = useRef(new Animated.Value(0)).current;
@@ -76,7 +103,9 @@ export function Home({ onNavigate }: Props) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     }
     if (isConnected) {
-      setBypass(!bypass);
+      const nextBypass = !bypass;
+      if (showTrial && trial.active) trial.recordOverride(nextBypass ? 'bypass' : 'active');
+      setBypass(nextBypass);
     } else if (!isBusy) {
       connect();
     }
@@ -178,6 +207,20 @@ export function Home({ onNavigate }: Props) {
           </Text>
         </TouchableOpacity>
 
+        {showTrial && (
+          <Nof1Card
+            dayNumber={trial.dayNumber}
+            totalDays={trial.totalDays}
+            assignment={trial.todayAssignment}
+            override={trial.todayOverride}
+            rated={trial.todayRated}
+            complete={trial.complete}
+            onRate={trial.rateToday}
+            onStop={trial.complete ? trial.clearTrial : trial.stopTrial}
+            onSeeResults={() => onNavigate('hearing')}
+          />
+        )}
+
         {/* ── Quick cards ─────────────────────────────── */}
         <View style={styles.cards}>
           <TouchableOpacity
@@ -197,8 +240,8 @@ export function Home({ onNavigate }: Props) {
             activeOpacity={0.8}
           >
             <Text style={styles.cardTitle}>Hearing</Text>
-            <Text style={styles.cardBody}>2 guided tests</Text>
-            <Text style={styles.cardHint}>Find what hurts, or match your sound</Text>
+            <Text style={styles.cardBody}>Tests & check-ins</Text>
+            <Text style={styles.cardHint}>Find what hurts, match your sound, see what helps</Text>
           </TouchableOpacity>
         </View>
 

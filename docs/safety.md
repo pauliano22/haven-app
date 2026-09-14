@@ -63,6 +63,79 @@ loudness-match slider is bounded to `MATCH_LOUDNESS_MIN_DB`–`MATCH_LOUDNESS_MA
 `TONE_LEVEL` watchdog, so a single `TONE_START`/`TONE_STOP` pair per burst is
 safe on its own. Same link-loss/unmount kill behavior as `useLdlTone`.
 
+### LDL-aware match level (`utils/matchLevel.ts`)
+
+55 dB is comfortable for normal hearing, but a hyperacusis user's loudness
+discomfort level can sit *below* 55 dB at exactly the frequencies being
+matched — and this flow presents tones up to 8 kHz. So when a completed
+comfort test exists, the match tones and the loudness slider's ceiling are
+capped at `lowest measured LDL − MATCH_LDL_MARGIN_DB` (10 dB), never below
+`MATCH_LOUDNESS_MIN_DB`. The cap uses the **most recent** run that measured
+anything (LDLs move; that is the point of the tolerance plan), a run that was
+comfortable to the ceiling everywhere imposes no cap, and the helper can only
+ever *lower* a level — it never raises one past the constants above. Every
+value still passes through `clampToneLevel()` at the payload boundary. The
+user sees a one-line note ("Kept quieter than usual…") so the quieter tones
+aren't mistaken for a fault. See `docs/clinical-basis.md` §1a.
+
+### Octave check (`utils/pitchMatch.ts`)
+
+Not a level change, but a tone-flow change worth recording here: after the
+bisection converges, one extra step plays the match against f/2 and 2f at the
+same capped level. Same `usePreviewTone` burst path, same watchdog margin.
+
+## LDL drift warning (`utils/ldlDrift.ts`)
+
+Detection, not action. If the user's comfort level at a frequency they are
+actively softening has fallen `LDL_DRIFT_WARN_DB` (10 dB) or more below their
+first measurement, Tune shows a card offering to pause that band. Pausing
+sets `attenDb` to 0 (the same floor the tolerance plan steps toward); nothing
+happens without a tap. This is the over-protection signal from Formby et al.
+2003 (`docs/clinical-basis.md` §1b) turned into something the app can notice.
+
+## Softening depth policy (`utils/atten.ts`)
+
+Three features can set a band's `attenDb` to 0 — the tolerance plan's final
+step, the LDL-drift "pause this band", and the Softening slider itself — so
+one module defines what that means: **0 dB is a paused band** (flat response,
+kept in the list), and active softening runs from `ATTEN_MIN_DB` up. Values in
+between are never produced on purpose; `normalizeAtten` snaps them to the
+floor. A comfort nudge can never pause a band (pausing is deliberate), and
+"not enough" on a paused band resumes it at the gentlest depth. Not a level
+*safety* rule — the DSP clamps everything — but a consistency one, so the UI
+never shows a depth the device isn't running.
+
+## Outcome check-ins and the N-of-1 trial (`screens/CheckIn.tsx`)
+
+None of these play sound. The weekly VAS and monthly THI are questionnaires;
+the N-of-1 trial only ever sends the same `BYPASS` / `MULTI_FILTER` the Home
+orb sends, and only once per connection per trial day — if the user has
+already switched protection themselves that day, the app does nothing and
+records an override. The user can always tap the orb; the plan is a
+suggestion. The results view refuses to compare arms until each has 14 rated
+days and never uses the words "works" or "proven".
+
+## Your data (`services/ExposureLog.ts`, `ConsentStore.ts`, `DataExportCard.tsx`)
+
+Interpreting any outcome number requires knowing what the device was doing,
+so the app keeps a local log: connection sessions, the active bands and
+depths, bypass state, and the check-in ratings. Rules, enforced in code:
+
+1. **Nothing is logged until the user agrees** (`ConsentCard`, shown once;
+   consent is versioned, so changed wording asks again).
+2. **It never leaves the phone by itself.** The only egress is "Share my
+   data", which hands a JSON or CSV to the platform share sheet — the user
+   picks the destination.
+3. **Withdrawing consent deletes the log** (`useConsent().withdraw`), not
+   just stops it.
+4. Bounded (`EXPOSURE_LOG_MAX_EVENTS`), no identifiers (there is no
+   account), and every exported level is labelled as a *commanded* value,
+   not measured sound pressure (see "Not yet calibrated" above / PR #6).
+
+The THI item wording is **not** shipped: it is the instrument authors'
+copyright and needs a licensing check before it is shown to anyone outside
+the team (`utils/thi.ts`). Scoring, history and trend are real.
+
 ## Related choices
 
 - LDL results are interpreted conservatively: only frequencies uncomfortable

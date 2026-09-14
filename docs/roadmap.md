@@ -56,6 +56,27 @@ dev-client build section) before considering it done.
   therapy; what it *can* do is help counter over-protection (a real,
   documented risk) by gradually easing softening back down. See
   `constants/tolerance.ts`.
+- **Clinical-review follow-ups** (2026-09-11), from `docs/clinical-basis.md`:
+  an **octave check** after pitch bisection (`OctaveCheckStep`, match vs f/2
+  and 2f; `MatchRun.octaveCorrected`), an **LDL-aware match level**
+  (`utils/matchLevel.ts` caps pitch bursts and the loudness slider at the
+  user's lowest recent LDL − 10 dB), and an **LDL drift warning** on Tune
+  (`utils/ldlDrift.ts`, `LdlDriftCard`: comfort level at a softened frequency
+  fell ≥ 10 dB since the first test → offer to pause that band; never
+  automatic). See `docs/safety.md`.
+- **Evidence programme** (2026-09-14, `feature/evidence-programme`): a third
+  Hearing tool, **Check in** — weekly 0–10 VAS pair, the THI at baseline and
+  monthly (scoring/trend real, item text pending a licensing check), an
+  opt-in **four-week N-of-1 trial** (randomised on/off days, daily rating,
+  Home card, honest two-arm summary that won't compare before 14 days per
+  arm), a consent-gated local **exposure log**, and **Share my data**
+  (JSON/CSV via the share sheet; withdraw = delete). Plus the PR #7 review
+  cleanups: skipped loudness matches are stored as `null` and shown as "not
+  measured"; `utils/atten.ts` makes the slider, tolerance plan and drift
+  pause agree that 0 dB = paused; pitch-match results offer a **wide,
+  one-octave preset** (`constants/tinnitus.ts`, Q ≈ 1.4, the width the
+  notched-sound literature used) as the default; `app-guide.md`'s file map
+  regenerated. See `docs/safety.md` ("Your data").
 
 ## Next — firmware / hardware bring-up (blocking real audio)
 

@@ -59,6 +59,9 @@ export function MatchHistory({ runs }: Props) {
           <Text style={[styles.rowDate, { color: c.textPrimary }]}>{formatDate(run.timestamp)}</Text>
           <Text style={[styles.rowSummary, { color: c.textSecondary }]}>
             {formatFreq(run.f0)}
+            {run.loudnessDb !== null && run.loudnessDb !== undefined
+              ? ` · ${Math.round(run.loudnessDb)} dB`
+              : ' · loudness not measured'}
             {run.botherScore !== null ? ` · bother ${run.botherScore}/10` : ''}
           </Text>
         </View>

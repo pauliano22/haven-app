@@ -53,3 +53,51 @@ export function isConverged(bracket: PitchBracket, trialsCompleted: number): boo
 export function matchedFrequency(bracket: PitchBracket): number {
   return Math.round(Math.sqrt(bracket.lowHz * bracket.highHz));
 }
+
+// ── Octave-confusion check ──────────────────────────────────────────────────
+//
+// Tinnitus pitch matches are notoriously off by exactly an octave: the
+// bisection above converges on *a* pitch the user accepts, but a tone one
+// octave away often sounds just as right, and clinical protocols end with an
+// explicit octave check for that reason (docs/clinical-basis.md §1a). So
+// after convergence the user hears the match against f/2 and 2f once, and
+// the bracket is re-centred if they pick a neighbour.
+
+export type OctaveChoice = 'lower' | 'match' | 'upper';
+
+export interface OctaveCandidates {
+  /** f/2, or null if it falls below the searchable range. */
+  lowerHz: number | null;
+  /** 2f, or null if it falls above the searchable range. */
+  upperHz: number | null;
+}
+
+export function octaveCandidates(f0Hz: number): OctaveCandidates {
+  const lower = f0Hz / 2;
+  const upper = f0Hz * 2;
+  return {
+    lowerHz: lower >= MATCH_PITCH_MIN_HZ ? Math.round(lower) : null,
+    upperHz: upper <= MATCH_PITCH_MAX_HZ ? Math.round(upper) : null,
+  };
+}
+
+/**
+ * Re-centre a converged bracket on the octave neighbour the user chose,
+ * keeping its (log) width so matchedFrequency() stays as precise as the
+ * search that produced it. 'match' returns the bracket unchanged. The result
+ * is clamped to the searchable range; if the chosen neighbour is out of
+ * range (octaveCandidates would have returned null for it) the bracket is
+ * also returned unchanged.
+ */
+export function applyOctaveChoice(bracket: PitchBracket, choice: OctaveChoice): PitchBracket {
+  if (choice === 'match') return bracket;
+  const f0 = Math.sqrt(bracket.lowHz * bracket.highHz);
+  const target = choice === 'lower' ? f0 / 2 : f0 * 2;
+  if (target < MATCH_PITCH_MIN_HZ || target > MATCH_PITCH_MAX_HZ) return bracket;
+
+  const halfRatio = Math.sqrt(bracket.highHz / bracket.lowHz);
+  return {
+    lowHz: Math.max(MATCH_PITCH_MIN_HZ, target / halfRatio),
+    highHz: Math.min(MATCH_PITCH_MAX_HZ, target * halfRatio),
+  };
+}
