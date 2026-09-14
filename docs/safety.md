@@ -93,6 +93,49 @@ sets `attenDb` to 0 (the same floor the tolerance plan steps toward); nothing
 happens without a tap. This is the over-protection signal from Formby et al.
 2003 (`docs/clinical-basis.md` §1b) turned into something the app can notice.
 
+## Softening depth policy (`utils/atten.ts`)
+
+Three features can set a band's `attenDb` to 0 — the tolerance plan's final
+step, the LDL-drift "pause this band", and the Softening slider itself — so
+one module defines what that means: **0 dB is a paused band** (flat response,
+kept in the list), and active softening runs from `ATTEN_MIN_DB` up. Values in
+between are never produced on purpose; `normalizeAtten` snaps them to the
+floor. A comfort nudge can never pause a band (pausing is deliberate), and
+"not enough" on a paused band resumes it at the gentlest depth. Not a level
+*safety* rule — the DSP clamps everything — but a consistency one, so the UI
+never shows a depth the device isn't running.
+
+## Outcome check-ins and the N-of-1 trial (`screens/CheckIn.tsx`)
+
+None of these play sound. The weekly VAS and monthly THI are questionnaires;
+the N-of-1 trial only ever sends the same `BYPASS` / `MULTI_FILTER` the Home
+orb sends, and only once per connection per trial day — if the user has
+already switched protection themselves that day, the app does nothing and
+records an override. The user can always tap the orb; the plan is a
+suggestion. The results view refuses to compare arms until each has 14 rated
+days and never uses the words "works" or "proven".
+
+## Your data (`services/ExposureLog.ts`, `ConsentStore.ts`, `DataExportCard.tsx`)
+
+Interpreting any outcome number requires knowing what the device was doing,
+so the app keeps a local log: connection sessions, the active bands and
+depths, bypass state, and the check-in ratings. Rules, enforced in code:
+
+1. **Nothing is logged until the user agrees** (`ConsentCard`, shown once;
+   consent is versioned, so changed wording asks again).
+2. **It never leaves the phone by itself.** The only egress is "Share my
+   data", which hands a JSON or CSV to the platform share sheet — the user
+   picks the destination.
+3. **Withdrawing consent deletes the log** (`useConsent().withdraw`), not
+   just stops it.
+4. Bounded (`EXPOSURE_LOG_MAX_EVENTS`), no identifiers (there is no
+   account), and every exported level is labelled as a *commanded* value,
+   not measured sound pressure (see "Not yet calibrated" above / PR #6).
+
+The THI item wording is **not** shipped: it is the instrument authors'
+copyright and needs a licensing check before it is shown to anyone outside
+the team (`utils/thi.ts`). Scoring, history and trend are real.
+
 ## Related choices
 
 - LDL results are interpreted conservatively: only frequencies uncomfortable

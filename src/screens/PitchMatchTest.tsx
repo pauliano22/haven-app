@@ -7,6 +7,7 @@ import { MatchResults } from '../components/match/MatchResults';
 import { OctaveCheckStep } from '../components/match/OctaveCheckStep';
 import { PitchTrialStep } from '../components/match/PitchTrialStep';
 import { ATTEN_DEFAULT_DB, Q_DEFAULT } from '../constants/dsp';
+import { TINNITUS_PRESET_ATTEN_DB, TINNITUS_PRESET_Q } from '../constants/tinnitus';
 import { MATCH_BURST_DURATION_MS } from '../constants/safety';
 import { SANS_FONT, SERIF_FONT } from '../constants/theme';
 import { useBle } from '../context/BleContext';
@@ -183,10 +184,12 @@ export function PitchMatchTest({ onBack }: Props) {
   }, [play, matchedF0, loudnessDb, levels.loudnessMaxDb]);
 
   const finishRun = useCallback(
-    (finalLoudnessDb: number, matched: boolean) => {
+    (finalLoudnessDb: number | null, matched: boolean) => {
       setLoudnessMatched(matched);
-      setLoudnessDb(finalLoudnessDb);
+      if (finalLoudnessDb !== null) setLoudnessDb(finalLoudnessDb);
       setPhase('results');
+      // A skipped loudness step is stored as null, not as the slider's start
+      // value -- history must never show a number nobody measured.
       const run: MatchRun = {
         timestamp: Date.now(),
         f0: matchedF0,
@@ -204,24 +207,30 @@ export function PitchMatchTest({ onBack }: Props) {
   }, [finishRun, loudnessDb]);
 
   const handleSkipLoudness = useCallback(() => {
-    finishRun(levels.loudnessStartDb, false);
-  }, [finishRun, levels.loudnessStartDb]);
+    finishRun(null, false);
+  }, [finishRun]);
 
   const handleAbort = useCallback(() => {
     stop();
     setPhase('intro');
   }, [stop]);
 
-  const handleApply = useCallback(() => {
-    const band: FilterBand = {
-      id: `match-${_matchBandId++}`,
-      f0: matchedF0,
-      q: Q_DEFAULT,
-      attenDb: ATTEN_DEFAULT_DB,
-    };
-    applyBands([band]);
-    setPhase('intro');
-  }, [matchedF0, applyBands]);
+  // Width preset: the published notched-sound work uses ~one octave
+  // (constants/tinnitus.ts), so that's the default here; "narrow" keeps the
+  // Q_DEFAULT the LDL flow uses for external sounds.
+  const handleApply = useCallback(
+    (width: 'wide' | 'narrow') => {
+      const band: FilterBand = {
+        id: `match-${_matchBandId++}`,
+        f0: matchedF0,
+        q: width === 'wide' ? TINNITUS_PRESET_Q : Q_DEFAULT,
+        attenDb: width === 'wide' ? TINNITUS_PRESET_ATTEN_DB : ATTEN_DEFAULT_DB,
+      };
+      applyBands([band]);
+      setPhase('intro');
+    },
+    [matchedF0, applyBands],
+  );
 
   // Keep a stale loudness value from exceeding a cap that arrived after it
   // was set (the LDL history loads asynchronously).

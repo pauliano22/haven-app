@@ -3,10 +3,11 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity } from 're
 import { ConnectionBar } from '../components/ConnectionBar';
 import { ColorPalette, RADIUS, SANS_FONT, SERIF_FONT } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
+import { CheckIn } from './CheckIn';
 import { LdlTest } from './LdlTest';
 import { PitchMatchTest } from './PitchMatchTest';
 
-type Tool = 'none' | 'ldl' | 'match';
+type Tool = 'none' | 'ldl' | 'match' | 'checkin';
 
 interface ToolCardProps {
   title: string;
@@ -42,11 +43,12 @@ export function Hearing() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {tool === 'ldl' && <LdlTest onBack={() => setTool('none')} />}
         {tool === 'match' && <PitchMatchTest onBack={() => setTool('none')} />}
+        {tool === 'checkin' && <CheckIn onBack={() => setTool('none')} />}
 
         {tool === 'none' && (
           <>
             <Text style={styles.title}>Hearing tools</Text>
-            <Text style={styles.subtitle}>Two guided tests, each about a minute.</Text>
+            <Text style={styles.subtitle}>Two guided tests, and a way to see whether any of it is helping.</Text>
 
             <ConnectionBar />
 
@@ -60,6 +62,12 @@ export function Hearing() {
               title="Match your sound"
               body="For a ringing, buzzing, or hissing that isn't really there — find its pitch and try softening it."
               onPress={() => setTool('match')}
+              styles={styles}
+            />
+            <ToolCard
+              title="Check in"
+              body="Short weekly and monthly check-ins, and an optional four-week on/off trial, so you can see what softening actually does for you."
+              onPress={() => setTool('checkin')}
               styles={styles}
             />
           </>

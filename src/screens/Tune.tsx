@@ -35,10 +35,7 @@ import { useComfortPrompt } from '../hooks/useComfortPrompt';
 import { useDebouncedCallback } from '../hooks/useDebounce';
 import { useLdlDrift } from '../hooks/useLdlDrift';
 import { useTolerancePlan } from '../hooks/useTolerancePlan';
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
+import { ATTEN_PAUSED_DB, attenLabel, isPaused, normalizeAtten, nudgeAtten, stepDownAtten } from '../utils/atten';
 
 function formatFrequency(hz: number): string {
   if (hz >= 1000) return `${(hz / 1000).toFixed(2)} kHz`;
@@ -47,13 +44,6 @@ function formatFrequency(hz: number): string {
 
 function formatChip(hz: number): string {
   return hz >= 1000 ? `${(hz / 1000).toFixed(1)}k` : `${Math.round(hz)}`;
-}
-
-function attenLabel(attenDb: number): string {
-  if (attenDb >= ATTEN_MAX_DB) return 'Fully softened';
-  if (attenDb >= 25) return 'Strongly softened';
-  if (attenDb >= 12) return 'Moderately softened';
-  return 'Gently softened';
 }
 
 function haptic(style: Haptics.ImpactFeedbackStyle) {
@@ -75,7 +65,7 @@ export function Tune() {
     (direction: ComfortDirection) => {
       if (direction !== 'same') {
         const delta = direction === 'weaker' ? -COMFORT_ADJUST_STEP_DB : COMFORT_ADJUST_STEP_DB;
-        updateSelected({ attenDb: clamp(selectedBand.attenDb + delta, ATTEN_MIN_DB, ATTEN_MAX_DB) });
+        updateSelected({ attenDb: nudgeAtten(selectedBand.attenDb, delta) });
       }
       recordResponse();
     },
@@ -96,7 +86,7 @@ export function Tune() {
 
   const handleAdvancePlan = useCallback(() => {
     if (!plan || !planBand) return;
-    updateBand(plan.bandId, { attenDb: Math.max(0, planBand.attenDb - TOLERANCE_STEP_DB) });
+    updateBand(plan.bandId, { attenDb: stepDownAtten(planBand.attenDb, TOLERANCE_STEP_DB) });
     advanceStep();
   }, [plan, planBand, updateBand, advanceStep]);
 
@@ -110,7 +100,7 @@ export function Tune() {
   const driftWarning = driftWarnings[0];
   const handlePauseDriftBand = useCallback(() => {
     if (!driftWarning) return;
-    updateBand(driftWarning.bandId, { attenDb: 0 });
+    updateBand(driftWarning.bandId, { attenDb: ATTEN_PAUSED_DB });
   }, [driftWarning, updateBand]);
 
   // ── nRF5340 DK bench controls — only appear when connected to bench
@@ -200,10 +190,14 @@ export function Tune() {
     [updateSelected],
   );
 
+  // The slider runs from 0 (paused) to ATTEN_MAX_DB; values inside the dead
+  // zone below ATTEN_MIN_DB snap to the floor so the UI, the plan, the drift
+  // pause and the wire all agree on what a depth means (utils/atten.ts).
   const handleAttenChange = useCallback(
-    (value: number) => updateSelected({ attenDb: Math.round(value) }),
+    (value: number) => updateSelected({ attenDb: normalizeAtten(value) }),
     [updateSelected],
   );
+  const selectedPaused = isPaused(selectedBand.attenDb);
 
   const trackColor = bypass ? c.sliderDisabled : c.accent;
   const thumbColorSecondary = bypass ? c.sliderDisabled : c.accentSecondary;
@@ -316,10 +310,12 @@ export function Tune() {
         {/* ── Dampening ────────────────────────────────  */}
         <View style={styles.card}>
           <SectionRule label="Softening" hint={attenLabel(selectedBand.attenDb)} />
-          <Text style={styles.freqValue}>−{Math.round(selectedBand.attenDb)} dB</Text>
+          <Text style={[styles.freqValue, selectedPaused && { color: c.textSecondary }]}>
+            {selectedPaused ? 'Paused' : `−${Math.round(selectedBand.attenDb)} dB`}
+          </Text>
           <Slider
             style={styles.mainSlider}
-            minimumValue={ATTEN_MIN_DB}
+            minimumValue={ATTEN_PAUSED_DB}
             maximumValue={ATTEN_MAX_DB}
             value={selectedBand.attenDb}
             step={1}
@@ -330,7 +326,7 @@ export function Tune() {
             disabled={bypass}
           />
           <View style={styles.rangeRow}>
-            <Text style={styles.rangeLabel}>Subtle</Text>
+            <Text style={styles.rangeLabel}>Paused</Text>
             <Text style={styles.rangeLabel}>Fully removed</Text>
           </View>
         </View>
