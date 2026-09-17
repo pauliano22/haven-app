@@ -18,8 +18,9 @@ import {
   SCAN_TIMEOUT_MS,
   UART_RX_CHAR_UUID,
   UART_SERVICE_UUID,
+  UART_TX_CHAR_UUID,
 } from '../constants/ble';
-import { BenchFreqRange, ConnectionStatus, DspPayload } from '../types';
+import { BenchFreqRange, ConnectionStatus, DeviceAckEvent, DspPayload } from '../types';
 
 export type BleErrorContext =
   | 'permissions'
@@ -44,6 +45,7 @@ export interface BleListenerHandle {
 type StatusListener = (status: ConnectionStatus) => void;
 type QueueListener = (count: number) => void;
 type ErrorListener = (event: BleErrorEvent) => void;
+type AckListener = (event: DeviceAckEvent) => void;
 type BenchAvailableListener = (available: boolean) => void;
 type BenchVolumeListener = (percent: number) => void;
 type BenchFreqRangeListener = (range: BenchFreqRange) => void;
@@ -59,6 +61,39 @@ function bytesToBase64(bytes: number[]): string {
 function base64ToBytes(b64: string): number[] {
   const binary = atob(b64);
   return Array.from(binary, (ch) => ch.charCodeAt(0));
+}
+
+/** Inverse of encodeBase64 -- decodes a UTF-8 string, not just raw bytes. */
+function decodeBase64ToString(b64: string): string {
+  return decodeURIComponent(escape(atob(b64)));
+}
+
+/** Parses one NUS TX notification into a DeviceAckEvent, or null for
+ * anything that isn't a recognized ack (malformed, or some future message
+ * type this app version doesn't know about yet) -- never throws.
+ */
+function parseAckEvent(raw: string): DeviceAckEvent | null {
+  const line = raw.endsWith('\n') ? raw.slice(0, -1) : raw;
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    return null;
+  }
+
+  if (typeof parsed !== 'object' || parsed === null || !('type' in parsed)) {
+    return null;
+  }
+  const obj = parsed as { type: unknown; cmd?: unknown };
+
+  if (obj.type === 'ERROR') {
+    return { type: 'ERROR' };
+  }
+  if (obj.type === 'ACK' && typeof obj.cmd === 'string') {
+    return { type: 'ACK', cmd: obj.cmd as DspPayload['type'] };
+  }
+  return null;
 }
 
 function decodeFreqRangeBytes(bytes: number[]): BenchFreqRange {
@@ -132,6 +167,8 @@ export class BleConnectionManager {
   private readonly statusListeners = new Set<StatusListener>();
   private readonly queueListeners = new Set<QueueListener>();
   private readonly errorListeners = new Set<ErrorListener>();
+  private readonly ackListeners = new Set<AckListener>();
+  private nusTxSub: Subscription | null = null;
 
   // ── nRF5340 DK bench firmware only (Haven Audio Control Service) ─────────
   private benchAvailable = false;
@@ -182,6 +219,15 @@ export class BleConnectionManager {
   onError(listener: ErrorListener): BleListenerHandle {
     this.errorListeners.add(listener);
     return { remove: () => this.errorListeners.delete(listener) };
+  }
+
+  /** Device -> app acks over NUS TX (docs/ble-protocol.md). Fires once per
+   * command the firmware dispatches, or once per rejected line -- intended
+   * for a quiet "applied"/error UI state, not a debug log.
+   */
+  onAck(listener: AckListener): BleListenerHandle {
+    this.ackListeners.add(listener);
+    return { remove: () => this.ackListeners.delete(listener) };
   }
 
   // ── nRF5340 DK bench firmware only ───────────────────────────────────────
@@ -415,6 +461,17 @@ export class BleConnectionManager {
       this.handleUnexpectedDisconnect(),
     );
 
+    this.nusTxSub?.remove();
+    this.nusTxSub = device.monitorCharacteristicForService(
+      UART_SERVICE_UUID,
+      UART_TX_CHAR_UUID,
+      (error, char) => {
+        if (error || !char?.value) return;
+        const event = parseAckEvent(decodeBase64ToString(char.value));
+        if (event) this.emitAck(event);
+      },
+    );
+
     this.setStatus('connected');
     this.flushQueue();
 
@@ -475,6 +532,8 @@ export class BleConnectionManager {
 
     this.disconnectSub?.remove();
     this.disconnectSub = null;
+    this.nusTxSub?.remove();
+    this.nusTxSub = null;
     this.device = null;
     this.teardownBenchControls();
 
@@ -588,6 +647,10 @@ export class BleConnectionManager {
   private emitError(context: BleErrorContext, userInitiated: boolean, message: string): void {
     const event: BleErrorEvent = { context, userInitiated, message };
     this.errorListeners.forEach((listener) => listener(event));
+  }
+
+  private emitAck(event: DeviceAckEvent): void {
+    this.ackListeners.forEach((listener) => listener(event));
   }
 
   private setBenchAvailable(available: boolean): void {

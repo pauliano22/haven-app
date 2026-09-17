@@ -6,6 +6,16 @@
 
 type Listener = (...args: unknown[]) => void;
 
+/** Matches the real react-native-ble-plx signature closely enough for tests
+ * to capture and invoke the callback -- previously untyped (inferred as a
+ * zero-arg function) since no test needed to drive it until the NUS TX ack
+ * subscription tests did.
+ */
+type CharacteristicMonitorListener = (
+  error: unknown,
+  characteristic: { value: string | null } | null,
+) => void;
+
 export const State = {
   Unknown: 'Unknown',
   Resetting: 'Resetting',
@@ -24,7 +34,11 @@ export class FakeDevice {
   requestMTU = jest.fn().mockResolvedValue(undefined);
   writeCharacteristicWithResponseForService = jest.fn().mockResolvedValue(undefined);
   readCharacteristicForService = jest.fn();
-  monitorCharacteristicForService = jest.fn(() => ({ remove: () => {} }));
+  monitorCharacteristicForService = jest.fn(
+    (_serviceUuid: string, _characteristicUuid: string, _listener: CharacteristicMonitorListener) => ({
+      remove: () => {},
+    }),
+  );
   cancelConnection = jest.fn().mockResolvedValue(undefined);
 
   constructor(id: string, name: string | null) {

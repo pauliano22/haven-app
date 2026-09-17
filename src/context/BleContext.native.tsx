@@ -10,7 +10,7 @@ import {
   BleErrorContext,
   getBleConnectionManager,
 } from '../services/BleConnectionManager';
-import { BenchFreqRange, BleContextValue, DspPayload } from '../types';
+import { BenchFreqRange, BleContextValue, DeviceAckEvent, DspPayload } from '../types';
 
 const BleContext = createContext<BleContextValue | null>(null);
 
@@ -31,6 +31,7 @@ export function BleProvider({ children }: { children: React.ReactNode }) {
   const [benchAvailable, setBenchAvailable] = useState(() => manager.isBenchAvailable());
   const [benchVolume, setBenchVolumeState] = useState(() => manager.getBenchVolume());
   const [benchFreqRange, setBenchFreqRangeState] = useState(() => manager.getBenchFreqRange());
+  const [lastAck, setLastAck] = useState<{ event: DeviceAckEvent; at: number } | null>(null);
 
   useEffect(() => {
     const subs = [
@@ -39,6 +40,7 @@ export function BleProvider({ children }: { children: React.ReactNode }) {
       manager.onBenchAvailableChange(setBenchAvailable),
       manager.onBenchVolumeChange(setBenchVolumeState),
       manager.onBenchFreqRangeChange(setBenchFreqRangeState),
+      manager.onAck((event) => setLastAck({ event, at: Date.now() })),
       // Background reconnect/write errors stay silent; the service retries them.
       manager.onError((event) => {
         if (event.userInitiated) {
@@ -82,6 +84,7 @@ export function BleProvider({ children }: { children: React.ReactNode }) {
         connect,
         disconnect,
         sendPayload,
+        lastAck,
         benchAvailable,
         benchVolume,
         benchFreqRange,
