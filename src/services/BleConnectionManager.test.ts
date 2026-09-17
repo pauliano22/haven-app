@@ -1,5 +1,5 @@
 import { __mock, FakeDevice } from '../../__mocks__/react-native-ble-plx';
-import { UART_SERVICE_UUID } from '../constants/ble';
+import { UART_SERVICE_UUID, UART_TX_CHAR_UUID } from '../constants/ble';
 import { BleConnectionManager } from './BleConnectionManager';
 
 /** Drains pending microtask chains (awaited promise hops inside the manager). */
@@ -114,5 +114,76 @@ describe('BleConnectionManager', () => {
 
     __mock.triggerDisconnect(device.id);
     expect(manager.getStatus()).toBe('idle');
+  });
+
+  describe('device -> app acks (NUS TX)', () => {
+    /** Grabs the callback the manager registered via monitorCharacteristicForService. */
+    function nusTxCallback(device: FakeDevice): (error: unknown, char: { value: string } | null) => void {
+      const call = device.monitorCharacteristicForService.mock.calls.find(
+        ([, charUuid]) => charUuid === UART_TX_CHAR_UUID,
+      );
+      if (!call) throw new Error('NUS TX was never subscribed to');
+      return call[2];
+    }
+
+    function b64(s: string): string {
+      return Buffer.from(s, 'utf8').toString('base64');
+    }
+
+    it('subscribes to NUS TX on connect and emits a parsed ACK', async () => {
+      const device = havenDevice();
+      __mock.setScanOutcome(device);
+      await manager.connect();
+
+      const acks: unknown[] = [];
+      manager.onAck((e) => acks.push(e));
+
+      nusTxCallback(device)(null, { value: b64('{"type":"ACK","cmd":"MULTI_FILTER"}\n') });
+
+      expect(acks).toEqual([{ type: 'ACK', cmd: 'MULTI_FILTER' }]);
+    });
+
+    it('emits a parsed ERROR event', async () => {
+      const device = havenDevice();
+      __mock.setScanOutcome(device);
+      await manager.connect();
+
+      const acks: unknown[] = [];
+      manager.onAck((e) => acks.push(e));
+
+      nusTxCallback(device)(null, { value: b64('{"type":"ERROR"}\n') });
+
+      expect(acks).toEqual([{ type: 'ERROR' }]);
+    });
+
+    it('ignores a notification error and a malformed payload without throwing or emitting', async () => {
+      const device = havenDevice();
+      __mock.setScanOutcome(device);
+      await manager.connect();
+
+      const acks: unknown[] = [];
+      manager.onAck((e) => acks.push(e));
+      const cb = nusTxCallback(device);
+
+      expect(() => cb(new Error('gatt error'), null)).not.toThrow();
+      expect(() => cb(null, { value: b64('not json') })).not.toThrow();
+      expect(() => cb(null, { value: b64('{"type":"SOMETHING_ELSE"}') })).not.toThrow();
+
+      expect(acks).toEqual([]);
+    });
+
+    it('removes the NUS TX listener from BleConnectionManager on unsubscribe', async () => {
+      const device = havenDevice();
+      __mock.setScanOutcome(device);
+      await manager.connect();
+
+      const acks: unknown[] = [];
+      const handle = manager.onAck((e) => acks.push(e));
+      handle.remove();
+
+      nusTxCallback(device)(null, { value: b64('{"type":"ACK","cmd":"BYPASS"}\n') });
+
+      expect(acks).toEqual([]);
+    });
   });
 });

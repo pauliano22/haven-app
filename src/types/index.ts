@@ -57,6 +57,22 @@ export type DspPayload =
   | ToneLevelPayload
   | ToneStopPayload;
 
+/** Device -> app acks over NUS TX (see docs/ble-protocol.md's "Messages
+ * (device -> app)"). `cmd` echoes the DspPayload type that was dispatched --
+ * confirms the firmware accepted the line, not that the audio pipeline
+ * applied it correctly (real hardware bring-up is still a roadmap item).
+ */
+export interface DeviceAck {
+  type: 'ACK';
+  cmd: DspPayload['type'];
+}
+
+export interface DeviceErrorAck {
+  type: 'ERROR';
+}
+
+export type DeviceAckEvent = DeviceAck | DeviceErrorAck;
+
 export interface LdlResult {
   f0: number;
   /** Level at which the user reported discomfort; null = comfortable up to the safety cap. */
@@ -109,6 +125,11 @@ export interface BleContextValue {
   connect: () => void;
   disconnect: () => void;
   sendPayload: (payload: DspPayload) => Promise<void>;
+  /** Most recent device -> app ack, with when it arrived (Date.now()) so a
+   * UI can show it briefly and let it go stale rather than persist forever.
+   * Null until the first one arrives on a connection.
+   */
+  lastAck: { event: DeviceAckEvent; at: number } | null;
 
   // ── nRF5340 DK bench firmware only — see constants/ble.ts. False/null on
   // production hardware, which won't have this service at all. ──────────────

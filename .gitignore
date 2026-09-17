@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Playwright MCP snapshots/console logs from manual UI verification passes
+.playwright-mcp/

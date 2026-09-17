@@ -53,6 +53,9 @@ export function BleProvider({ children }: { children: React.ReactNode }) {
         connect,
         disconnect,
         sendPayload,
+        // No production JSON/NUS protocol on web (see file header) -- acks
+        // are a native-only concept here.
+        lastAck: null,
         benchAvailable: status === 'connected',
         benchVolume,
         benchFreqRange,

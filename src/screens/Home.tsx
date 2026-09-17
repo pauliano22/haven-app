@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -30,7 +30,7 @@ interface Props {
 }
 
 export function Home({ onNavigate }: Props) {
-  const { status, queuedCount, connect, disconnect } = useBle();
+  const { status, queuedCount, connect, disconnect, lastAck } = useBle();
   const { bands, bypass, setBypass } = useFilters();
   const { theme, toggleTheme } = useTheme();
   const c = theme.colors;
@@ -70,6 +70,37 @@ export function Home({ onNavigate }: Props) {
 
   const orbScale = breath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] });
   const glowOpacity = breath.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] });
+
+  // Quiet device -> app ack indicator (docs/ble-protocol.md, roadmap.md's
+  // "Next -- app"): a brief confirmation, not the old engineering-facing TX
+  // monitor this replaces -- no JSON, no command name, just "it landed" or
+  // "it didn't", fading on its own rather than needing to be dismissed.
+  const [toastText, setToastText] = useState<string | null>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!lastAck) return;
+    setToastText(lastAck.event.type === 'ACK' ? 'Applied' : "Couldn't apply that change");
+
+    const fadeIn = Animated.timing(toastOpacity, {
+      toValue: 1,
+      duration: reduceMotion ? 0 : 150,
+      useNativeDriver: true,
+    });
+    const fadeOut = Animated.timing(toastOpacity, {
+      toValue: 0,
+      duration: reduceMotion ? 0 : 400,
+      delay: 1600,
+      useNativeDriver: true,
+    });
+    const anim = Animated.sequence([fadeIn, fadeOut]);
+    anim.start(({ finished }) => {
+      if (finished) setToastText(null);
+    });
+    return () => anim.stop();
+    // lastAck.at (not just the object) so the same ack type twice in a row
+    // still re-triggers the fade instead of being a no-op dependency change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastAck?.at]);
 
   const handleOrbPress = () => {
     if (Platform.OS !== 'web') {
@@ -177,6 +208,20 @@ export function Home({ onNavigate }: Props) {
                   : 'Not connected — tap to connect'}
           </Text>
         </TouchableOpacity>
+
+        {toastText && (
+          <Animated.Text
+            style={[
+              styles.ackToast,
+              {
+                color: lastAck?.event.type === 'ACK' ? c.statusConnected : c.statusScanning,
+                opacity: toastOpacity,
+              },
+            ]}
+          >
+            {toastText}
+          </Animated.Text>
+        )}
 
         {/* ── Quick cards ─────────────────────────────── */}
         <View style={styles.cards}>
@@ -344,6 +389,13 @@ function makeStyles(c: ColorPalette) {
       fontFamily: SANS_FONT,
       fontSize: 13,
       color: c.textSecondary,
+    },
+    ackToast: {
+      fontFamily: SANS_FONT,
+      fontSize: 12,
+      textAlign: 'center',
+      alignSelf: 'center',
+      marginTop: 8,
     },
 
     cards: {
