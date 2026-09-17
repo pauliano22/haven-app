@@ -74,10 +74,15 @@ dev-client build section) before considering it done.
 - Verify the redesign on a real iPhone via a dev-client build (see
   app-guide.md — plain Expo Go won't work, `react-native-ble-plx` needs a
   custom build).
-- Subscribe to NUS TX for device→app acks; surface "applied"/error state
+- ~~Subscribe to NUS TX for device→app acks; surface "applied"/error state
   somewhere in the new UI (the old TX monitor was intentionally removed as
   too engineering-facing — replace with a quiet toast or Home-screen state,
-  not a JSON dump).
+  not a JSON dump).~~ Done, pending merge of both halves: firmware now
+  sends `{"type":"ACK"/"ERROR",...}` over NUS TX
+  ([haven-zephyr-app#15](https://github.com/pauliano22/haven-zephyr-app/pull/15)),
+  and the app subscribes + shows a brief auto-fading Home-screen line
+  ([haven-app#9](https://github.com/pauliano22/haven-app/pull/9)). Not yet
+  verified end-to-end against real hardware.
 - Calibration story: `level_db` is currently nominal — map commanded dB to
   real acoustic output once hardware exists.
 - ~~Tests: unit-test `BleConnectionManager` queue/reconnect logic and
