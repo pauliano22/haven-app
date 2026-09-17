@@ -8,8 +8,10 @@ firmware side in `src/protocol.h` and `prj.conf`.
 
 - **Service**: Nordic UART Service (NUS), UUID `6E400001-B5A3-F393-E0A9-E50E24DCCA9E`.
 - **App → device**: write-with-response to the RX characteristic (`...0002`).
-- **Device → app**: TX characteristic (`...0003`) is defined but **not yet
-  used** — the app never subscribes; acks are a roadmap item.
+- **Device → app**: TX characteristic (`...0003`) — the firmware sends a
+  one-line ack after every processed line (see "Messages (device → app)"
+  below). The app does not yet subscribe to it; that's the remaining half
+  of this roadmap item (see roadmap.md's "Next — app").
 - **Device name**: advertises as `Haven`. The app scans by exact name match.
   Change `DEVICE_NAME` (app) and `CONFIG_BT_DEVICE_NAME` (firmware) together.
 - **MTU**: app requests 247 on Android so a full 5-band payload fits one write.
@@ -50,6 +52,32 @@ Implemented firmware-side as of `haven-zephyr-app` commit `a8f38cf`:
 `level_db` is clamped to 85 dB independently of this app's own cap, and a
 keep-alive watchdog auto-stops the tone if `TONE_LEVEL` doesn't arrive
 within 3s of the last one.
+
+## Messages (device → app)
+
+Implemented firmware-side in `src/ack.c`, sent over the TX characteristic
+after every line `src/main.c`'s `handle_line()` processes — the app doesn't
+subscribe yet (see above).
+
+### ACK — a line was parsed and dispatched
+```json
+{"type":"ACK","cmd":"MULTI_FILTER"}
+```
+`cmd` echoes back the app→device message type that was applied (one of
+`MULTI_FILTER`, `BYPASS`, `TONE_START`, `TONE_LEVEL`, `TONE_STOP`). Sent
+once per processed line, after dispatch — not a guarantee the *audio
+pipeline* applied it correctly (real ADAU1860 bring-up TODOs still apply,
+see roadmap.md), only that the firmware accepted and dispatched the
+command.
+
+### ERROR — a line failed to parse
+```json
+{"type":"ERROR"}
+```
+Sent when `protocol_parse_line()` rejects the line (malformed JSON, unknown
+`type`, or a field that fails validation). Deliberately has no message
+detail — matches the project's stated intent for this roadmap item ("a
+quiet 'applied'/error state... not a JSON dump").
 
 ## App-side delivery semantics
 
