@@ -68,22 +68,27 @@ export function Tune() {
   const styles = useMemo(() => makeStyles(c), [c]);
 
   // A simple nudge, not a real per-user model -- see constants/comfort.ts.
-  const { shouldPrompt, recordResponse } = useComfortPrompt(status === 'connected' && !bypass);
+  // `history` also feeds the tolerance plan's adaptive pacing below.
+  const { shouldPrompt, history: comfortHistory, recordResponse } = useComfortPrompt(
+    status === 'connected' && !bypass,
+  );
   const handleComfortRespond = useCallback(
     (direction: ComfortDirection) => {
       if (direction !== 'same') {
         const delta = direction === 'weaker' ? -COMFORT_ADJUST_STEP_DB : COMFORT_ADJUST_STEP_DB;
         updateSelected({ attenDb: clamp(selectedBand.attenDb + delta, ATTEN_MIN_DB, ATTEN_MAX_DB) });
       }
-      recordResponse();
+      recordResponse(direction);
     },
     [selectedBand.attenDb, updateSelected, recordResponse],
   );
 
   // ── Tolerance-building plan ────────────────────────────────────────────
   // See constants/tolerance.ts for why this only ever reduces softening on
-  // explicit confirmation, never automatically.
-  const { plan, loaded: planLoaded, dueForStep, startPlan, stopPlan, advanceStep } = useTolerancePlan();
+  // explicit confirmation, never automatically. Pacing between steps adapts
+  // to recent comfort responses -- see utils/tolerancePacing.ts.
+  const { plan, loaded: planLoaded, dueForStep, intervalMs, startPlan, stopPlan, advanceStep } =
+    useTolerancePlan(comfortHistory);
   const planBand = plan ? bands.find((b) => b.id === plan.bandId) : undefined;
 
   // If the plan's band was removed (e.g. via the × on a band chip), the plan
@@ -255,6 +260,7 @@ export function Tune() {
             plan={plan}
             currentAttenDb={planBand.attenDb}
             dueForStep={dueForStep}
+            intervalMs={intervalMs}
             onAdvance={handleAdvancePlan}
             onStop={stopPlan}
           />
