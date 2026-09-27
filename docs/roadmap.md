@@ -15,9 +15,12 @@ dev-client build section) before considering it done.
 - **Plain-language trend summary** (2026-09-27, prototype): a deterministic
   insights layer (`utils/insights.ts`) over the existing LDL/match history,
   plus a tested-but-not-live LLM rewrite step with a faithfulness check that
-  rejects any AI-added number not present in the source data. No API key is
-  wired into this app — see [llm-summary.md](llm-summary.md) for why (never
-  embed a provider key client-side) and what a backend for this needs.
+  rejects any AI-added number not present in the source data. The backend
+  this needs (`server/llm-relay/`) and the app-side caller
+  (`RemoteLlmClient.ts`) are now both written and tested too — nothing is
+  deployed or wired in yet, on purpose (never embed a provider key
+  client-side; deploying is a real cost/ops decision). See
+  [llm-summary.md](llm-summary.md).
 - **App**: multi-band dampening (≤5 bands, f0/Q/atten), robust BLE layer
   (auto-reconnect, offline queue, MTU 247), LDL guided test with hard safety
   limits, rename to Haven, full visual + IA redesign — Home/Tune/Hearing
