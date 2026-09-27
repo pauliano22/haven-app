@@ -70,8 +70,13 @@ real native modules — real BLE, and the on-ramp for TFLite/WASM work later.
 2. **YAMNet on-device sound classification** (`ML_RL_FEASIBILITY.md`
    Tier 2) — `react-native-fast-tflite` has a real Expo config plugin
    (confirmed from its own docs), so it should slot in the same way
-   `react-native-ble-plx` already has, though its New Architecture
-   compatibility isn't confirmed yet and should be checked before relying
-   on it.
+   `react-native-ble-plx` already has. **Real risk found, not just an
+   unconfirmed gap**: a documented GitHub issue (mrousavy/react-native-fast-tflite#133)
+   reports a build failure specifically with the New Architecture enabled
+   on iOS, at v1.6.0 / RN 0.77.1. This app is on RN 0.85.3 where the New
+   Architecture is mandatory (Expo SDK 55+ removed the option to disable
+   it) — so this needs a direct check against a current library version
+   before committing to it, not an assumption either way (the issue could
+   be long fixed, or still open; wasn't confirmed either way this pass).
 3. **Any future WASM-based audio experiment** — real as of RN 0.84+, and
    this app's Expo SDK (56) already mandates the New Architecture it needs.
