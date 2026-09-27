@@ -48,6 +48,14 @@ dev-client build section) before considering it done.
   band's `attenDb` by a fixed 3dB step and gates itself to once per 24h.
   Deliberately framed as a simple nudge, not a real per-user ML model —
   see `constants/comfort.ts`.
+- **Preference-guided tuner** (2026-09-27): an opt-in "Help me find a better
+  setting →" flow on Tune that runs a short series of A/B comparisons to
+  converge on a depth (`attenDb`) and width (`Q`) for the selected band,
+  instead of manual slider guesswork. Not a learned model — see
+  [preference-tuner.md](preference-tuner.md) for the algorithm, its stated
+  assumptions, and why it's an honest (if much smaller) analog to
+  commercial hearing aids' A/B preference-learning features rather than
+  anything trained on data. Frequency is never touched by it.
 - **Tolerance-building plan** (`TolerancePlanCard`, Tune screen): an
   opt-in, one-band-at-a-time plan that reduces `attenDb` by a fixed 3dB
   step per week, only ever on an explicit tap (never automatic). Honest
