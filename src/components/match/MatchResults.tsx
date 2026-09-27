@@ -7,6 +7,8 @@ import { SectionRule } from '../SectionRule';
 interface Props {
   f0: number;
   loudnessDb: number | null;
+  /** True when the final octave check moved the match to a neighbouring octave. */
+  octaveCorrected?: boolean;
   onApply: () => void;
   onRedo: () => void;
   onClose: () => void;
@@ -16,7 +18,7 @@ function formatFreq(hz: number): string {
   return hz >= 1000 ? `${(hz / 1000).toFixed(2)} kHz` : `${hz} Hz`;
 }
 
-export function MatchResults({ f0, loudnessDb, onApply, onRedo, onClose }: Props) {
+export function MatchResults({ f0, loudnessDb, octaveCorrected, onApply, onRedo, onClose }: Props) {
   const { theme } = useTheme();
   const c = theme.colors;
 
@@ -27,6 +29,11 @@ export function MatchResults({ f0, loudnessDb, onApply, onRedo, onClose }: Props
       {loudnessDb != null && (
         <Text style={[styles.loudness, { color: c.textSecondary }]}>
           about as loud as {Math.round(loudnessDb)} dB
+        </Text>
+      )}
+      {octaveCorrected && (
+        <Text style={[styles.loudness, { color: c.textSecondary }]}>
+          adjusted by an octave in the final check
         </Text>
       )}
 

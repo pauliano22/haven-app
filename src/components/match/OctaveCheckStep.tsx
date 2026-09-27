@@ -2,25 +2,37 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { RADIUS, RADIUS_SM, SANS_FONT, SERIF_FONT } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { OctaveCandidates, OctaveChoice } from '../../utils/pitchMatch';
 import { SectionRule } from '../SectionRule';
 
 interface Props {
-  trialIndex: number;
-  playingWhich: 'A' | 'B' | null;
-  playedA: boolean;
-  playedB: boolean;
-  /** Shown once, under the instruction, when tones are quieter than usual for this user. */
+  f0: number;
+  candidates: OctaveCandidates;
+  playingWhich: OctaveChoice | null;
+  played: Record<OctaveChoice, boolean>;
   levelNote?: string;
-  onPlay: (which: 'A' | 'B') => void;
-  onChoose: (which: 'A' | 'B') => void;
+  onPlay: (which: OctaveChoice) => void;
+  onChoose: (which: OctaveChoice) => void;
   onAbort: () => void;
 }
 
-export function PitchTrialStep({
-  trialIndex,
+const LABELS: Record<OctaveChoice, string> = {
+  lower: 'Lower',
+  match: 'Your match',
+  upper: 'Higher',
+};
+
+/**
+ * The final octave check after pitch bisection has converged: the matched
+ * tone against its neighbours one octave down and up. Same play/choose
+ * pattern as PitchTrialStep; a neighbour that falls outside the searchable
+ * range is simply not offered.
+ */
+export function OctaveCheckStep({
+  f0,
+  candidates,
   playingWhich,
-  playedA,
-  playedB,
+  played,
   levelNote,
   onPlay,
   onChoose,
@@ -29,12 +41,26 @@ export function PitchTrialStep({
   const { theme } = useTheme();
   const c = theme.colors;
 
-  const renderOption = (which: 'A' | 'B', played: boolean) => {
+  const options: OctaveChoice[] = [];
+  if (candidates.lowerHz !== null) options.push('lower');
+  options.push('match');
+  if (candidates.upperHz !== null) options.push('upper');
+
+  const anyPlayed = options.some((o) => played[o]);
+
+  const renderOption = (which: OctaveChoice) => {
     const isPlaying = playingWhich === which;
+    const isMatch = which === 'match';
     return (
-      <View style={[styles.option, { backgroundColor: c.cardBg, borderColor: c.border }]}>
-        <Text style={[styles.optionLabel, { color: c.textSecondary }]}>
-          Sound {which}
+      <View
+        key={which}
+        style={[
+          styles.option,
+          { backgroundColor: c.cardBg, borderColor: isMatch ? c.accent : c.border },
+        ]}
+      >
+        <Text style={[styles.optionLabel, { color: isMatch ? c.accent : c.textSecondary }]}>
+          {LABELS[which]}
         </Text>
         <TouchableOpacity
           style={[
@@ -45,7 +71,7 @@ export function PitchTrialStep({
           disabled={isPlaying}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel={`Play sound ${which}`}
+          accessibilityLabel={`Play the ${LABELS[which].toLowerCase()} sound`}
         >
           <Text style={[styles.playBtnText, { color: c.btnConnectText }]}>
             {isPlaying ? 'Playing…' : '▶ Play'}
@@ -54,22 +80,19 @@ export function PitchTrialStep({
         <TouchableOpacity
           style={[
             styles.chooseBtn,
-            { borderColor: played ? c.accent : c.border },
-            !played && styles.chooseBtnDisabled,
+            { borderColor: played[which] ? c.accent : c.border },
+            !played[which] && styles.chooseBtnDisabled,
           ]}
           onPress={() => onChoose(which)}
-          disabled={!played}
+          disabled={!played[which]}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel={`Choose sound ${which} as closer to what I hear`}
+          accessibilityLabel={`Choose the ${LABELS[which].toLowerCase()} sound`}
         >
           <Text
-            style={[
-              styles.chooseBtnText,
-              { color: played ? c.accent : c.textSecondary },
-            ]}
+            style={[styles.chooseBtnText, { color: played[which] ? c.accent : c.textSecondary }]}
           >
-            This is closer
+            This one
           </Text>
         </TouchableOpacity>
       </View>
@@ -79,19 +102,22 @@ export function PitchTrialStep({
   return (
     <View style={styles.wrap}>
       <View style={[styles.card, { backgroundColor: c.cardBg, borderColor: c.border }]}>
-        <SectionRule label={`Comparison ${trialIndex + 1}`} hint="listening" />
+        <SectionRule label="One last check" hint="octave" />
         <Text style={[styles.instruction, { color: c.textPrimary }]}>
-          Play both sounds, then choose the one that's closer to what you
-          hear.
+          Sounds an octave apart can feel like the same pitch. Play your match
+          and its neighbours, then pick the one that's really closest.
         </Text>
-        {levelNote && trialIndex === 0 && (
+        {levelNote && (
           <Text style={[styles.note, { color: c.textSecondary }]}>{levelNote}</Text>
         )}
 
-        <View style={styles.optionsRow}>
-          {renderOption('A', playedA)}
-          {renderOption('B', playedB)}
-        </View>
+        <View style={styles.optionsRow}>{options.map(renderOption)}</View>
+
+        {!anyPlayed && (
+          <Text style={[styles.hint, { color: c.textSecondary }]}>
+            Play at least one to choose. Your match is {formatFreq(f0)}.
+          </Text>
+        )}
       </View>
 
       <TouchableOpacity
@@ -104,6 +130,10 @@ export function PitchTrialStep({
       </TouchableOpacity>
     </View>
   );
+}
+
+function formatFreq(hz: number): string {
+  return hz >= 1000 ? `${(hz / 1000).toFixed(2)} kHz` : `${hz} Hz`;
 }
 
 const styles = StyleSheet.create({
@@ -130,32 +160,33 @@ const styles = StyleSheet.create({
   },
   optionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   option: {
     flex: 1,
     borderRadius: RADIUS,
     borderWidth: 1,
-    padding: 14,
+    padding: 12,
     alignItems: 'center',
   },
   optionLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: SANS_FONT,
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
     marginBottom: 12,
+    textAlign: 'center',
   },
   playBtn: {
     width: '100%',
     borderRadius: RADIUS_SM,
-    paddingVertical: 14,
+    paddingVertical: 12,
     alignItems: 'center',
     marginBottom: 10,
   },
   playBtnText: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: SANS_FONT,
     fontWeight: '700',
   },
@@ -163,16 +194,22 @@ const styles = StyleSheet.create({
     width: '100%',
     borderWidth: 1.5,
     borderRadius: RADIUS_SM,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
   },
   chooseBtnDisabled: {
     opacity: 0.5,
   },
   chooseBtnText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontFamily: SANS_FONT,
     fontWeight: '600',
+  },
+  hint: {
+    fontSize: 12,
+    fontFamily: SANS_FONT,
+    marginTop: 14,
+    textAlign: 'center',
   },
   abortBtn: {
     borderWidth: 1,

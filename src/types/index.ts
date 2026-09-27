@@ -80,6 +80,11 @@ export interface MatchRun {
   loudnessDb: number;
   /** Optional self-rated bother, 0-10 — null if the user skipped it. */
   botherScore: number | null;
+  /**
+   * True if the final octave check moved the match to f/2 or 2f. Optional so
+   * runs persisted before the check existed still load.
+   */
+  octaveCorrected?: boolean;
 }
 
 /**

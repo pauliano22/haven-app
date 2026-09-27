@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { ComfortCheckIn, ComfortDirection } from '../components/ComfortCheckIn';
 import { ConnectionBar } from '../components/ConnectionBar';
+import { LdlDriftCard } from '../components/LdlDriftCard';
 import { SectionRule } from '../components/SectionRule';
 import { TolerancePlanCard } from '../components/TolerancePlanCard';
 import { VisualizerCurve } from '../components/VisualizerCurve';
@@ -32,6 +33,7 @@ import { useFilters } from '../context/FilterContext';
 import { useTheme } from '../context/ThemeContext';
 import { useComfortPrompt } from '../hooks/useComfortPrompt';
 import { useDebouncedCallback } from '../hooks/useDebounce';
+import { useLdlDrift } from '../hooks/useLdlDrift';
 import { useTolerancePlan } from '../hooks/useTolerancePlan';
 
 function clamp(value: number, min: number, max: number): number {
@@ -99,6 +101,17 @@ export function Tune() {
   }, [plan, planBand, updateBand, advanceStep]);
 
   const canStartPlan = planLoaded && !plan && selectedBand.attenDb > ATTEN_MIN_DB;
+
+  // ── LDL drift (over-protection) warning ───────────────────────────────
+  // Detection lives in utils/ldlDrift.ts; this only offers to pause the band
+  // -- the same never-automatic rule as the tolerance plan. Pausing means
+  // attenDb 0 (flat), the same floor handleAdvancePlan steps toward.
+  const { warnings: driftWarnings, dismiss: dismissDrift } = useLdlDrift(bands);
+  const driftWarning = driftWarnings[0];
+  const handlePauseDriftBand = useCallback(() => {
+    if (!driftWarning) return;
+    updateBand(driftWarning.bandId, { attenDb: 0 });
+  }, [driftWarning, updateBand]);
 
   // ── nRF5340 DK bench controls — only appear when connected to bench
   // firmware (Haven Audio Control Service), never on production hardware.
@@ -247,6 +260,14 @@ export function Tune() {
             </TouchableOpacity>
           )}
         </ScrollView>
+
+        {driftWarning && (
+          <LdlDriftCard
+            warning={driftWarning}
+            onPause={handlePauseDriftBand}
+            onDismiss={() => dismissDrift(driftWarning.bandId)}
+          />
+        )}
 
         {shouldPrompt && <ComfortCheckIn onRespond={handleComfortRespond} />}
 
