@@ -71,12 +71,16 @@ real native modules — real BLE, and the on-ramp for TFLite/WASM work later.
    Tier 2) — `react-native-fast-tflite` has a real Expo config plugin
    (confirmed from its own docs), so it should slot in the same way
    `react-native-ble-plx` already has. **Real risk found, not just an
-   unconfirmed gap**: a documented GitHub issue (mrousavy/react-native-fast-tflite#133)
-   reports a build failure specifically with the New Architecture enabled
-   on iOS, at v1.6.0 / RN 0.77.1. This app is on RN 0.85.3 where the New
-   Architecture is mandatory (Expo SDK 55+ removed the option to disable
-   it) — so this needs a direct check against a current library version
-   before committing to it, not an assumption either way (the issue could
-   be long fixed, or still open; wasn't confirmed either way this pass).
+   unconfirmed gap, now resolved**: a GitHub issue
+   (mrousavy/react-native-fast-tflite#133) reported a build failure with
+   the New Architecture enabled on iOS at v1.6.0 / RN 0.77.1. Checked its
+   resolution: it's closed, and the real cause was that v1.6.0's npm
+   package shipped without a `spec` folder its own New Arch codegen needed
+   — a packaging bug in that one release, not a fundamental incompatibility
+   (v1.5.0 and New-Arch-disabled builds were unaffected). This app is on RN
+   0.85.3 with the New Architecture mandatory either way (Expo SDK 55+
+   removed the option to disable it) — worth confirming the installed
+   version isn't specifically the broken v1.6.0, but this is no longer an
+   open risk the way it looked initially.
 3. **Any future WASM-based audio experiment** — real as of RN 0.84+, and
    this app's Expo SDK (56) already mandates the New Architecture it needs.
