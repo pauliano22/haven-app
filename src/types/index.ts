@@ -76,8 +76,8 @@ export interface MatchRun {
   timestamp: number;
   /** Matched pitch, Hz. */
   f0: number;
-  /** Matched loudness, dB. */
-  loudnessDb: number;
+  /** Matched loudness, dB — null when the user skipped the loudness step. */
+  loudnessDb: number | null;
   /** Optional self-rated bother, 0-10 — null if the user skipped it. */
   botherScore: number | null;
   /**
@@ -124,4 +124,75 @@ export interface BleContextValue {
   /** Resolves once the board accepts the write; rejects (out-of-range, etc.) otherwise. */
   setBenchVolume: (percent: number) => Promise<void>;
   setBenchFreqRange: (range: BenchFreqRange) => Promise<void>;
+}
+
+// ── Outcome measurement (constants/outcomes.ts) ──────────────────────────────
+
+/** One weekly check-in: two 0–10 visual-analogue ratings. */
+export interface VasCheckIn {
+  timestamp: number;
+  /** "How loud is your sound right now?" 0–10. */
+  loudness: number;
+  /** "How much does it bother you?" 0–10. */
+  bother: number;
+}
+
+export type ThiAnswer = 'yes' | 'sometimes' | 'no';
+
+/** One completed Tinnitus Handicap Inventory. */
+export interface ThiRun {
+  timestamp: number;
+  /** 25 answers in item order (utils/thi.ts). */
+  answers: ThiAnswer[];
+  /** 0–100. */
+  total: number;
+}
+
+// ── N-of-1 trial (utils/nof1.ts) ─────────────────────────────────────────────
+
+export type TrialArm = 'active' | 'bypass';
+
+export interface TrialOverride {
+  timestamp: number;
+  /** Local calendar day, YYYY-MM-DD. */
+  day: string;
+  assigned: TrialArm;
+  chosen: TrialArm;
+}
+
+export interface Nof1Trial {
+  startedAt: number;
+  /** Local calendar day of the first trial day, YYYY-MM-DD. */
+  startDay: string;
+  /** Arm per trial day, index 0 = startDay. */
+  schedule: TrialArm[];
+  /** Daily 0–10 bother rating, keyed by day. */
+  ratings: Record<string, number>;
+  /** Times the user manually switched protection against the day's assignment. */
+  overrides: TrialOverride[];
+  stoppedAt: number | null;
+}
+
+// ── Exposure log (services/ExposureLog.ts) ───────────────────────────────────
+
+export type ExposureEventType =
+  | 'connected'
+  | 'disconnected'
+  | 'bands'
+  | 'bypass'
+  | 'trial_rating'
+  | 'trial_override'
+  | 'vas'
+  | 'thi';
+
+export interface ExposureEvent {
+  timestamp: number;
+  type: ExposureEventType;
+  /** Small, JSON-serialisable payload; shape depends on `type`. */
+  data?: Record<string, unknown>;
+}
+
+export interface ConsentRecord {
+  acceptedAt: number;
+  version: number;
 }

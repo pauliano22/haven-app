@@ -11,33 +11,74 @@ App.tsx                      tab state (home | tune | hearing), TabBar, PhoneFra
 src/
   navigation.ts               Tab type
   screens/
-    Home.tsx                 protection orb, quick links to Tune/Hearing
-    Tune.tsx                 visualizer, band chips, frequency/softening/width sliders
-    LdlTest.tsx               LDL test orchestrator (intro → testing → results) — the "Hearing" tab
+    Home.tsx                 protection orb, N-of-1 trial card, quick links to Tune/Hearing
+    Tune.tsx                 visualizer, band chips, frequency/softening/width sliders,
+                             comfort check-in, tolerance plan, LDL drift card, DK bench controls
+    Hearing.tsx              three-tool picker: LDL test / Match your sound / Check in
+    LdlTest.tsx              LDL test orchestrator (intro → testing → results)
+    PitchMatchTest.tsx       2AFC pitch bisection → octave check → loudness → results
+    CheckIn.tsx              evidence programme: consent, weekly VAS, THI, N-of-1 trial, export
   components/
-    TabBar.tsx                persistent bottom tab bar
+    TabBar.tsx               persistent bottom tab bar
     ConnectionBar.tsx        status LED + connect/disconnect
     VisualizerCurve.tsx      SVG frequency-response curve
-    SectionRule.tsx          soft section caption (design signature on Tune/Hearing cards)
-    FadeIn.tsx                the app's ambient screen-transition animation
-    ldl/                     LdlIntro, LdlToneStep, LdlResults
+    SectionRule.tsx          soft section caption (design signature on cards)
+    FadeIn.tsx               the app's ambient screen-transition animation
+    ComfortCheckIn.tsx       "too strong / just right / not enough" nudge
+    TolerancePlanCard.tsx    weekly −3 dB plan card (user-confirmed steps)
+    LdlDriftCard.tsx         over-protection warning with "Pause this band"
+    ConsentCard.tsx          one-time local-logging consent
+    DataExportCard.tsx       "Share my data" (JSON / CSV via the share sheet), withdraw & delete
+    ldl/                     LdlIntro, LdlToneStep, LdlResults, LdlHistory
+    match/                   MatchIntro, PitchTrialStep, OctaveCheckStep, LoudnessMatchStep,
+                             MatchResults (wide/narrow width choice), MatchHistory
+    outcomes/                VasCheckIn, ThiQuestionnaire, OutcomeHistory
+    nof1/                    Nof1Card (Home), Nof1Results (Check in)
   context/
     BleContext.native.tsx    real BLE provider (wraps the service singleton)
     BleContext.web.tsx       no-op stub (browsers have no BLE)
-    FilterContext.tsx        band state + all device sends — shared by Home/Tune/Hearing
+    FilterContext.tsx        band state + all device sends + exposure logging
     ThemeContext.tsx         dark/light toggle
   services/
     BleConnectionManager.ts  the entire connection lifecycle (pure TS, no React)
+    WebBenchBle.ts           Web Bluetooth path for the DK bench GATT service
+    FilterStore.ts           bands + bypass (AsyncStorage)
+    LdlHistoryStore.ts       LDL runs (capped)
+    MatchHistoryStore.ts     pitch-match runs (capped)
+    ComfortStore.ts          last comfort-prompt time
+    TolerancePlanStore.ts    the single active tolerance plan
+    OutcomeStore.ts          weekly VAS check-ins + THI runs
+    TrialStore.ts            the single N-of-1 trial
+    ConsentStore.ts          local-logging consent record (versioned)
+    ExposureLog.ts           consent-gated, bounded event log (connections, bands, bypass, ratings)
   hooks/
-    useLdlTone.ts            tone ramp state machine (safety-critical)
+    useLdlTone.ts            LDL tone ramp state machine (safety-critical)
+    usePreviewTone.ts        short fixed-duration bursts for pitch matching (safety-critical)
+    useLdlDrift.ts           LDL-vs-active-bands drift warnings
+    useComfortPrompt.ts      comfort check-in gating
+    useTolerancePlan.ts      tolerance plan state/timing
+    useOutcomes.ts           VAS/THI histories and due-ness
+    useNof1Trial.ts          trial state, today's assignment, ratings, overrides
+    useConsent.ts            consent state; withdraw also wipes the log
     useDebounce.ts           debounced slider sends (100 ms)
     useReducedMotion.ts      OS reduce-motion flag, used by all animation
+  utils/
+    pitchMatch.ts            2AFC bisection + octave candidates (pure)
+    matchLevel.ts            LDL-aware match level (pure)
+    ldlDrift.ts              drift detection (pure)
+    atten.ts                 what attenDb 0 means: paused; nudge/step/normalise policy (pure)
+    thi.ts                   THI scoring, grades, MCID trend (pure; item text pending licensing)
+    nof1.ts                  N-of-1 schedule, assignment, attribution, summary sentence (pure)
+    exportData.ts            JSON + CSV export shaping (pure)
   constants/
     ble.ts                   UUIDs, device name, timeouts, MTU
     dsp.ts                   f0/Q/atten ranges + MAX_BANDS (synced with firmware)
     safety.ts                hard output limits — see safety.md
+    comfort.ts, tolerance.ts nudge/plan step sizes and intervals
+    tinnitus.ts              one-octave (Q ≈ 1.4) preset for pitch-match results
+    outcomes.ts              VAS/THI intervals, THI scoring, trial length, log cap, consent version
     theme.ts                 palettes, fonts, radii (design-system.md)
-  types/index.ts             FilterBand (UI) vs WireFilterBand (wire), payloads
+  types/index.ts             FilterBand (UI) vs WireFilterBand (wire), payloads, runs, trial, log
 ```
 
 ## Key flows
@@ -97,5 +138,6 @@ through `App.tsx`.
   no Mac needed, but requires an Expo/EAS account and an Apple developer
   account for device install). Once that dev-client build is on your phone,
   `npm start` and scanning the QR code works like Expo Go normally would.
-- No test suite yet (roadmap). The firmware parser has host-run unit tests in
-  its own repo.
+- Tests: `npx jest` (jest-expo). Pure modules under `utils/` and the hooks
+  have unit tests; screens do not. Typecheck both module-suffix passes:
+  `npx tsc --noEmit` and `npx tsc --noEmit --moduleSuffixes '.web,'`.
