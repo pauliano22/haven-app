@@ -19,7 +19,12 @@ dev-client build section) before considering it done.
   this needs (`server/llm-relay/`) and the app-side caller
   (`RemoteLlmClient.ts`) are now both written and tested too — nothing is
   deployed or wired in yet, on purpose (never embed a provider key
-  client-side; deploying is a real cost/ops decision). See
+  client-side; deploying is a real cost/ops decision). **Now has a real UI
+  surface** (`InsightsSummaryCard`, on the Hearing tab, above the tool
+  cards) — a real gap caught after the fact: the whole feature had zero
+  tests-only value until this, since nothing rendered it anywhere.
+  `hasRealData()` keeps it invisible for a brand-new user with no history
+  yet, rather than showing an awkward "not enough data" placeholder. See
   [llm-summary.md](llm-summary.md).
 - **App**: multi-band dampening (≤5 bands, f0/Q/atten), robust BLE layer
   (auto-reconnect, offline queue, MTU 247), LDL guided test with hard safety

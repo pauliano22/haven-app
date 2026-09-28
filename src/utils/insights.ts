@@ -220,3 +220,11 @@ export function describeInsight(insight: Insight): string {
       return `Not enough ${insight.area === 'ldl' ? 'loudness comfort' : 'match your sound'} runs yet for a trend.`;
   }
 }
+
+/** True once there's at least one real insight to show -- i.e. not just a
+ * list of "insufficient_data" placeholders. A new user with no history yet
+ * gets a screen with no summary card at all, not an awkward "not enough
+ * data" message taking up space before they've done anything. */
+export function hasRealData(insights: readonly Insight[]): boolean {
+  return insights.some((i) => i.type !== 'insufficient_data');
+}

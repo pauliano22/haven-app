@@ -5,6 +5,7 @@ import {
   computeLdlInsights,
   computeMatchInsights,
   describeInsight,
+  hasRealData,
   Insight,
   LdlTrendInsight,
   MatchDriftInsight,
@@ -205,5 +206,29 @@ describe('numbersIn / describeInsight', () => {
       expect(typeof text).toBe('string');
       expect(text.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('hasRealData', () => {
+  it('is false for an empty list', () => {
+    expect(hasRealData([])).toBe(false);
+  });
+
+  it('is false when every insight is a placeholder', () => {
+    expect(
+      hasRealData([
+        { type: 'insufficient_data', area: 'ldl' },
+        { type: 'insufficient_data', area: 'match' },
+      ]),
+    ).toBe(false);
+  });
+
+  it('is true as soon as one real insight is present, regardless of others', () => {
+    expect(
+      hasRealData([
+        { type: 'insufficient_data', area: 'match' },
+        { type: 'ldl_trend', f0: 4000, direction: 'stable', firstDb: 70, lastDb: 70, runCount: 2 },
+      ]),
+    ).toBe(true);
   });
 });

@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { ConnectionBar } from '../components/ConnectionBar';
+import { InsightsSummaryCard } from '../components/InsightsSummaryCard';
 import { ColorPalette, RADIUS, SANS_FONT, SERIF_FONT } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
+import { useHearingInsights } from '../hooks/useHearingInsights';
+import { hasRealData } from '../utils/insights';
 import { CheckIn } from './CheckIn';
 import { LdlTest } from './LdlTest';
 import { PitchMatchTest } from './PitchMatchTest';
@@ -38,6 +41,11 @@ export function Hearing() {
   const c = theme.colors;
   const styles = makeStyles(c);
 
+  // No LlmClient anywhere in this app yet -- see docs/llm-summary.md. This
+  // is the deterministic-only mode, permanent until a real backend exists,
+  // not a temporary stub.
+  const { loading: insightsLoading, insights, summaryText, summarySource } = useHearingInsights();
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -51,6 +59,10 @@ export function Hearing() {
             <Text style={styles.subtitle}>Two guided tests, and a way to see whether any of it is helping.</Text>
 
             <ConnectionBar />
+
+            {!insightsLoading && hasRealData(insights) && (
+              <InsightsSummaryCard summaryText={summaryText} summarySource={summarySource} />
+            )}
 
             <ToolCard
               title="Loudness comfort test"
