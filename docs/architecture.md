@@ -47,7 +47,8 @@ controller runs on the network core via sysbuild). Layers:
 
 - `src/ble_transport.c` — NUS peripheral advertising as `Haven`; reassembles
   newline-framed lines (512-byte cap); auto re-advertises on disconnect;
-  `ble_transport_send()` exists for future device→app acks.
+  `ble_transport_send()` carries the device→app acks and events
+  (`src/ack.c`, PR #12; see [ble-protocol.md](ble-protocol.md)).
 - `src/protocol.c` — allocation-free parser for the fixed JSON schema; clamps
   every parameter (see [ble-protocol.md](ble-protocol.md)); host-unit-tested.
 - `src/tone_safety.c` — independent firmware-side ceiling + keep-alive

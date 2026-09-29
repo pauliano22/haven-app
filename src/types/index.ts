@@ -57,6 +57,54 @@ export type DspPayload =
   | ToneLevelPayload
   | ToneStopPayload;
 
+// ── Device → app messages over NUS TX ────────────────────────────────────────
+// Wire contract: haven-zephyr-app docs/nus-acks.md (formatter src/ack.c).
+// Every line the app writes gets exactly one ack; events are unsolicited.
+// Acks echo the values the device APPLIED (after its own clamps), never the
+// requested ones, and are best-effort — the app treats them as confirmation,
+// not as the source of truth for its own state.
+
+/** Which output path the connected firmware was built with (boot event). */
+export type DacSource = 'fdsp' | 'dmic_direct' | (string & {});
+
+export type DeviceAck =
+  | { kind: 'ack'; cmd: 'MULTI_FILTER'; ok: true; bands: number }
+  | { kind: 'ack'; cmd: 'BYPASS'; ok: true; enabled: boolean }
+  | { kind: 'ack'; cmd: 'TONE_START'; ok: true; f0: number; levelDb: number }
+  | { kind: 'ack'; cmd: 'TONE_LEVEL'; ok: true; levelDb: number }
+  | { kind: 'ack'; cmd: 'TONE_STOP'; ok: true }
+  | {
+      kind: 'ack';
+      /** The command type, or '?' when the line never parsed. */
+      cmd: DspPayload['type'] | '?';
+      ok: false;
+      /** parse = malformed line; dsp = the codec driver refused (code = errno); unknown = future type. */
+      err: 'parse' | 'dsp' | 'unknown';
+      code?: number;
+    };
+
+/** What the firmware announces right after the BLE link comes up. */
+export interface DeviceBootInfo {
+  /** Firmware version string (APP_VERSION_STRING). */
+  fw: string;
+  /** FastDSP frame rate, Hz. */
+  fdspRate: number;
+  /** 'fdsp' = product path with the limiter; anything else is a bench build. */
+  dacSource: DacSource;
+}
+
+export type DeviceEvent =
+  | ({ kind: 'event'; event: 'boot' } & DeviceBootInfo)
+  | { kind: 'event'; event: 'tone_watchdog' };
+
+export type DeviceMessage = DeviceAck | DeviceEvent;
+
+/** A message plus the moment the app received it, so equal messages still re-trigger UI. */
+export interface TimestampedDeviceMessage {
+  message: DeviceMessage;
+  at: number;
+}
+
 export interface LdlResult {
   f0: number;
   /** Level at which the user reported discomfort; null = comfortable up to the safety cap. */
@@ -68,6 +116,12 @@ export interface LdlRun {
   /** ms since epoch, when the run completed. */
   timestamp: number;
   results: LdlResult[];
+  /**
+   * Firmware version that produced the tones (boot event), so a result can be
+   * attributed to a firmware once acoustic calibration exists. Optional so
+   * runs persisted before acks existed still load.
+   */
+  fw?: string;
 }
 
 /** One completed "match your sound" run, persisted for history/trend display. */
@@ -85,6 +139,8 @@ export interface MatchRun {
    * runs persisted before the check existed still load.
    */
   octaveCorrected?: boolean;
+  /** Firmware version that played the match tones (boot event), if known. */
+  fw?: string;
 }
 
 /**
@@ -114,6 +170,18 @@ export interface BleContextValue {
   connect: () => void;
   disconnect: () => void;
   sendPayload: (payload: DspPayload) => Promise<void>;
+
+  // ── Device → app messages (NUS TX; see docs/ble-protocol.md) ─────────────
+  /** Most recent ack or event, with receive time; null until one arrives. */
+  lastMessage: TimestampedDeviceMessage | null;
+  /**
+   * The connected firmware's boot announcement, null while disconnected or
+   * until it arrives. `dacSource !== 'fdsp'` means a bench build with no
+   * output limiter — hearing tests must refuse to run (utils/deviceMessages.ts).
+   */
+  deviceInfo: DeviceBootInfo | null;
+  /** Subscribe to every device message as it arrives (hooks that must react without re-render lag). */
+  onDeviceMessage: (listener: (message: DeviceMessage) => void) => { remove: () => void };
 
   // ── nRF5340 DK bench firmware only — see constants/ble.ts. False/null on
   // production hardware, which won't have this service at all. ──────────────

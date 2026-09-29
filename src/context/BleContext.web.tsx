@@ -38,6 +38,9 @@ export function BleProvider({ children }: { children: React.ReactNode }) {
   // The production JSON/NUS protocol has no Web Bluetooth port (see file
   // header) -- only the bench controls below are real on web.
   const sendPayload = useCallback(async (_payload: DspPayload) => {}, []);
+  // No NUS on web, so no device acks/events ever arrive: the listener is
+  // accepted and simply never called.
+  const onDeviceMessage = useCallback(() => ({ remove: () => {} }), []);
 
   const setBenchVolume = useCallback((percent: number) => client.setVolume(percent), [client]);
   const setBenchFreqRange = useCallback(
@@ -53,6 +56,9 @@ export function BleProvider({ children }: { children: React.ReactNode }) {
         connect,
         disconnect,
         sendPayload,
+        lastMessage: null,
+        deviceInfo: null,
+        onDeviceMessage,
         benchAvailable: status === 'connected',
         benchVolume,
         benchFreqRange,

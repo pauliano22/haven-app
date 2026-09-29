@@ -20,7 +20,7 @@ src/
     CheckIn.tsx              evidence programme: consent, weekly VAS, THI, N-of-1 trial, export
   components/
     TabBar.tsx               persistent bottom tab bar
-    ConnectionBar.tsx        status LED + connect/disconnect
+    ConnectionBar.tsx        status LED + connect/disconnect (+ firmware version from the boot event)
     VisualizerCurve.tsx      SVG frequency-response curve
     SectionRule.tsx          soft section caption (design signature on cards)
     FadeIn.tsx               the app's ambient screen-transition animation
@@ -35,12 +35,12 @@ src/
     outcomes/                VasCheckIn, ThiQuestionnaire, OutcomeHistory
     nof1/                    Nof1Card (Home), Nof1Results (Check in)
   context/
-    BleContext.native.tsx    real BLE provider (wraps the service singleton)
-    BleContext.web.tsx       no-op stub (browsers have no BLE)
-    FilterContext.tsx        band state + all device sends + exposure logging
+    BleContext.native.tsx    real BLE provider (wraps the service singleton; lastMessage, deviceInfo)
+    BleContext.web.tsx       no-op stub (browsers have no BLE; no device messages ever arrive)
+    FilterContext.tsx        band state + all device sends + exposure logging + rollback on ok:false acks
     ThemeContext.tsx         dark/light toggle
   services/
-    BleConnectionManager.ts  the entire connection lifecycle (pure TS, no React)
+    BleConnectionManager.ts  the entire connection lifecycle (pure TS, no React) + NUS TX subscription
     WebBenchBle.ts           Web Bluetooth path for the DK bench GATT service
     FilterStore.ts           bands + bypass (AsyncStorage)
     LdlHistoryStore.ts       LDL runs (capped)
@@ -63,6 +63,7 @@ src/
     useDebounce.ts           debounced slider sends (100 ms)
     useReducedMotion.ts      OS reduce-motion flag, used by all animation
   utils/
+    deviceMessages.ts        device→app wire parser, `\n` line buffer, hearing-test safety gate (pure)
     pitchMatch.ts            2AFC bisection + octave candidates (pure)
     matchLevel.ts            LDL-aware match level (pure)
     ldlDrift.ts              drift detection (pure)
@@ -98,6 +99,20 @@ connected. On unexpected drop: reconnect loop with exponential backoff
 adapter power-on or app foregrounding. Offline sends queue per-type
 (latest-wins) and flush on reconnect. UI subscribes via `onStatusChange` /
 `onQueueChange` / `onError`; only user-initiated errors alert.
+
+### Device → app acks and events
+On connect the manager subscribes to NUS TX (before its first write), runs
+each notification through `LineBuffer` (`\n` framing; a line may span two
+packets or share one) and `parseDeviceLine()` (`utils/deviceMessages.ts`),
+and emits typed `DeviceMessage`s via `onDeviceMessage`; the `boot` event is
+also kept as `getDeviceInfo()`. `BleContext` exposes `lastMessage`,
+`deviceInfo` and `onDeviceMessage`. Consumers: `FilterContext` (rollback on
+`ok:false`, `lastRejectedAt`), `Home` (Applied / Couldn't-apply toast),
+`useLdlTone`/`usePreviewTone` (watchdog abort, applied-level echo, refuse to
+start on a no-limiter build), `Hearing` (explains the disabled tools),
+`ConnectionBar` (fw label), `LdlTest`/`PitchMatchTest` (`fw` on saved runs).
+Wire shapes: [ble-protocol.md](ble-protocol.md). Acks are confirmation
+only — nothing waits on them.
 
 ### Protection toggle (Home orb)
 Tapping the orb calls `useFilters().setBypass(!bypass)` — `true` sends

@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -33,8 +33,8 @@ interface Props {
 }
 
 export function Home({ onNavigate }: Props) {
-  const { status, queuedCount, connect, disconnect } = useBle();
-  const { bands, bypass, setBypass } = useFilters();
+  const { status, queuedCount, connect, disconnect, lastMessage } = useBle();
+  const { bands, bypass, setBypass, lastRejectedAt } = useFilters();
   const { theme, toggleTheme } = useTheme();
   const c = theme.colors;
   const reduceMotion = useReducedMotion();
@@ -97,6 +97,49 @@ export function Home({ onNavigate }: Props) {
 
   const orbScale = breath.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] });
   const glowOpacity = breath.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] });
+
+  // Quiet device→app confirmation (docs/ble-protocol.md, roadmap "Next — app"):
+  // a brief "Applied" when the device acks a softening/bypass change, or
+  // "Couldn't apply that change" when it refuses one (FilterContext has
+  // already rolled the UI back by then). Fades on its own; no JSON, no
+  // command names -- deliberately not the old engineering-facing TX monitor.
+  // Tone acks are ignored here: they arrive every ramp step during a test.
+  const [toast, setToast] = useState<{ text: string; ok: boolean; at: number } | null>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!lastMessage) return;
+    const { message, at } = lastMessage;
+    if (message.kind !== 'ack') return;
+    if (message.cmd !== 'MULTI_FILTER' && message.cmd !== 'BYPASS') return;
+    if (!message.ok) return; // the refusal toast is driven by lastRejectedAt below
+    setToast({ text: 'Applied', ok: true, at });
+  }, [lastMessage]);
+  useEffect(() => {
+    if (lastRejectedAt === null) return;
+    setToast({ text: "Couldn't apply that change", ok: false, at: lastRejectedAt });
+  }, [lastRejectedAt]);
+  useEffect(() => {
+    if (!toast) return;
+    const anim = Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: reduceMotion ? 0 : 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: reduceMotion ? 0 : 400,
+        delay: toast.ok ? 1600 : 3200,
+        useNativeDriver: true,
+      }),
+    ]);
+    anim.start(({ finished }) => {
+      if (finished) setToast(null);
+    });
+    return () => anim.stop();
+    // Keyed on `at` so the same text twice in a row still re-triggers the fade.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast?.at]);
 
   const handleOrbPress = () => {
     if (Platform.OS !== 'web') {
@@ -206,6 +249,18 @@ export function Home({ onNavigate }: Props) {
                   : 'Not connected — tap to connect'}
           </Text>
         </TouchableOpacity>
+
+        {toast && (
+          <Animated.Text
+            style={[
+              styles.ackToast,
+              { color: toast.ok ? c.statusConnected : c.statusDisconnected, opacity: toastOpacity },
+            ]}
+            accessibilityLiveRegion="polite"
+          >
+            {toast.text}
+          </Animated.Text>
+        )}
 
         {showTrial && (
           <Nof1Card
@@ -387,6 +442,13 @@ function makeStyles(c: ColorPalette) {
       fontFamily: SANS_FONT,
       fontSize: 13,
       color: c.textSecondary,
+    },
+    ackToast: {
+      fontFamily: SANS_FONT,
+      fontSize: 12,
+      textAlign: 'center',
+      alignSelf: 'center',
+      marginTop: 10,
     },
 
     cards: {
