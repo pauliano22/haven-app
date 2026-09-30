@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { BandTunerCard } from '../components/BandTunerCard';
 import { ComfortCheckIn, ComfortDirection } from '../components/ComfortCheckIn';
 import { ConnectionBar } from '../components/ConnectionBar';
 import { LdlDriftCard } from '../components/LdlDriftCard';
@@ -31,6 +32,7 @@ import { ColorPalette, RADIUS, SANS_FONT, SERIF_FONT } from '../constants/theme'
 import { useBle } from '../context/BleContext';
 import { useFilters } from '../context/FilterContext';
 import { useTheme } from '../context/ThemeContext';
+import { useBandTuner } from '../hooks/useBandTuner';
 import { useComfortPrompt } from '../hooks/useComfortPrompt';
 import { useDebouncedCallback } from '../hooks/useDebounce';
 import { useLdlDrift } from '../hooks/useLdlDrift';
@@ -91,6 +93,13 @@ export function Tune() {
   }, [plan, planBand, updateBand, advanceStep]);
 
   const canStartPlan = planLoaded && !plan && selectedBand.attenDb > ATTEN_MIN_DB;
+
+  // ── Preference-guided tuner ─────────────────────────────────────────────
+  // A short series of A/B comparisons that finds a depth+width for the
+  // selected band without manual slider guesswork -- see useBandTuner.ts.
+  // Not a learned model; frequency is never touched by it.
+  const tuner = useBandTuner(selectedId);
+  const canStartTuner = status === 'connected' && !bypass && !tuner.active;
 
   // ── LDL drift (over-protection) warning ───────────────────────────────
   // Detection lives in utils/ldlDrift.ts; this only offers to pause the band
@@ -283,6 +292,21 @@ export function Tune() {
           >
             <Text style={styles.startPlanText}>Build tolerance for this sound →</Text>
           </TouchableOpacity>
+        )}
+
+        {tuner.active ? (
+          <BandTunerCard tuner={tuner} />
+        ) : (
+          canStartTuner && (
+            <TouchableOpacity
+              style={styles.startPlanLink}
+              onPress={tuner.start}
+              accessibilityRole="button"
+              accessibilityLabel="Help me find a better setting"
+            >
+              <Text style={styles.startPlanText}>Help me find a better setting →</Text>
+            </TouchableOpacity>
+          )
         )}
 
         {/* ── Frequency ────────────────────────────────  */}
