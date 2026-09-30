@@ -59,12 +59,20 @@ dev-client build section) before considering it done.
   anything trained on data. Frequency is never touched by it.
 - **Tolerance-building plan** (`TolerancePlanCard`, Tune screen): an
   opt-in, one-band-at-a-time plan that reduces `attenDb` by a fixed 3dB
-  step per week, only ever on an explicit tap (never automatic). Honest
-  about what Haven's hardware can and can't do here — it has no broadband
-  noise generator, so this can't be real sound-generator-based hyperacusis
+  step, only ever on an explicit tap (never automatic). Honest about what
+  Haven's hardware can and can't do here — it has no broadband noise
+  generator, so this can't be real sound-generator-based hyperacusis
   therapy; what it *can* do is help counter over-protection (a real,
   documented risk) by gradually easing softening back down. See
   `constants/tolerance.ts`.
+  **2026-09-27: the wait between steps is now adaptive**, not a fixed
+  week — it doubles after two "too strong" comfort responses and halves
+  (down to a floor) after two comfortable ones, using history the comfort
+  check-in now actually persists (`ComfortHistoryStore`, previously only
+  the last-prompted timestamp was kept). Deliberately a plain rule, not a
+  bandit — see `utils/tolerancePacing.ts` for why the data density here
+  doesn't support one, unlike the depth/width tuner. 25 new tests across
+  the new store, the pacing function, and both hooks.
 - **Clinical-review follow-ups** (2026-09-11), from `docs/clinical-basis.md`:
   an **octave check** after pitch bisection (`OctaveCheckStep`, match vs f/2
   and 2f; `MatchRun.octaveCorrected`), an **LDL-aware match level**

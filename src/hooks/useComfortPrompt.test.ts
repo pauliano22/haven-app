@@ -34,7 +34,7 @@ describe('useComfortPrompt', () => {
     expect(result.current.shouldPrompt).toBe(true);
 
     act(() => {
-      result.current.recordResponse();
+      result.current.recordResponse('same');
     });
 
     expect(result.current.shouldPrompt).toBe(false);
@@ -58,5 +58,33 @@ describe('useComfortPrompt', () => {
     await flushLoad();
 
     expect(result.current.shouldPrompt).toBe(true);
+  });
+
+  it('starts with empty history when nothing has been recorded', async () => {
+    const { result } = renderHook(() => useComfortPrompt(true));
+    await flushLoad();
+    expect(result.current.history).toEqual([]);
+  });
+
+  it('recordResponse appends to history, most recent first', async () => {
+    const { result } = renderHook(() => useComfortPrompt(true));
+    await flushLoad();
+
+    act(() => result.current.recordResponse('weaker'));
+    act(() => result.current.recordResponse('same'));
+
+    expect(result.current.history).toHaveLength(2);
+    expect(result.current.history[0].direction).toBe('same'); // most recent first
+    expect(result.current.history[1].direction).toBe('weaker');
+  });
+
+  it('loads previously persisted history on mount', async () => {
+    const past = [{ timestamp: Date.now() - 1000, direction: 'stronger' as const }];
+    await AsyncStorage.setItem('haven.comfortHistory.v1', JSON.stringify(past));
+
+    const { result } = renderHook(() => useComfortPrompt(true));
+    await flushLoad();
+
+    expect(result.current.history).toEqual(past);
   });
 });
