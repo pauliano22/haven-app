@@ -167,7 +167,12 @@ What actually remains:
 
 - Verify the redesign on a real iPhone via a dev-client build (see
   app-guide.md — plain Expo Go won't work, `react-native-ble-plx` needs a
-  custom build).
+  custom build). **2026-09-27: the local prep for this is done** —
+  `expo-dev-client` installed, a real config gap fixed (`expo-system-ui`
+  was missing, silently no-opping `userInterfaceStyle: "dark"` outside Expo
+  Go), a local `prebuild` run and verified clean, `eas.json` added. The one
+  remaining step needs your Expo account — see
+  [dev-client-build.md](dev-client-build.md).
 - ~~Subscribe to NUS TX for device→app acks; surface "applied"/error state
   somewhere in the new UI (the old TX monitor was intentionally removed as
   too engineering-facing — replace with a quiet toast or Home-screen state,
