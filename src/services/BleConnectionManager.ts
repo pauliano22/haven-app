@@ -18,8 +18,16 @@ import {
   SCAN_TIMEOUT_MS,
   UART_RX_CHAR_UUID,
   UART_SERVICE_UUID,
+  UART_TX_CHAR_UUID,
 } from '../constants/ble';
-import { BenchFreqRange, ConnectionStatus, DspPayload } from '../types';
+import {
+  BenchFreqRange,
+  ConnectionStatus,
+  DeviceBootInfo,
+  DeviceMessage,
+  DspPayload,
+} from '../types';
+import { LineBuffer, parseDeviceLine } from '../utils/deviceMessages';
 
 export type BleErrorContext =
   | 'permissions'
@@ -44,6 +52,8 @@ export interface BleListenerHandle {
 type StatusListener = (status: ConnectionStatus) => void;
 type QueueListener = (count: number) => void;
 type ErrorListener = (event: BleErrorEvent) => void;
+type DeviceMessageListener = (message: DeviceMessage) => void;
+type DeviceInfoListener = (info: DeviceBootInfo | null) => void;
 type BenchAvailableListener = (available: boolean) => void;
 type BenchVolumeListener = (percent: number) => void;
 type BenchFreqRangeListener = (range: BenchFreqRange) => void;
@@ -59,6 +69,11 @@ function bytesToBase64(bytes: number[]): string {
 function base64ToBytes(b64: string): number[] {
   const binary = atob(b64);
   return Array.from(binary, (ch) => ch.charCodeAt(0));
+}
+
+/** Inverse of encodeBase64: base64 → UTF-8 text (NUS TX lines are UTF-8 JSON). */
+function base64ToUtf8(b64: string): string {
+  return decodeURIComponent(escape(atob(b64)));
 }
 
 function decodeFreqRangeBytes(bytes: number[]): BenchFreqRange {
@@ -100,6 +115,10 @@ async function requestBlePermissions(): Promise<boolean> {
  * - Coalescing offline queue: every payload is staged by type (latest wins) and
  *   drained over a serialized write chain the moment the link is up.
  * - Reacts to adapter power cycles and app foregrounding to retry immediately.
+ * - Subscribes to NUS TX and turns the device's newline-framed JSON acks and
+ *   events into typed DeviceMessages (docs/ble-protocol.md, "Messages
+ *   (device → app)"). Acks are confirmation only — the queue above never waits
+ *   on them.
  *
  * Pure TypeScript, no React — UI layers subscribe via the on*() listener methods.
  */
@@ -132,6 +151,14 @@ export class BleConnectionManager {
   private readonly statusListeners = new Set<StatusListener>();
   private readonly queueListeners = new Set<QueueListener>();
   private readonly errorListeners = new Set<ErrorListener>();
+
+  // ── Device → app messages over NUS TX ────────────────────────────────────
+  private nusTxSub: Subscription | null = null;
+  private readonly rxLines = new LineBuffer();
+  /** The connected firmware's boot event; null until it arrives / after disconnect. */
+  private deviceInfo: DeviceBootInfo | null = null;
+  private readonly deviceMessageListeners = new Set<DeviceMessageListener>();
+  private readonly deviceInfoListeners = new Set<DeviceInfoListener>();
 
   // ── nRF5340 DK bench firmware only (Haven Audio Control Service) ─────────
   private benchAvailable = false;
@@ -182,6 +209,27 @@ export class BleConnectionManager {
   onError(listener: ErrorListener): BleListenerHandle {
     this.errorListeners.add(listener);
     return { remove: () => this.errorListeners.delete(listener) };
+  }
+
+  // ── Device → app messages ────────────────────────────────────────────────
+
+  /** Boot announcement of the connected firmware (fw version, DAC source), or null. */
+  getDeviceInfo(): DeviceBootInfo | null {
+    return this.deviceInfo;
+  }
+
+  /**
+   * Every ack and event the device sends, in arrival order. Fires once per
+   * line; unparsable or unknown lines are dropped silently (forward-compatible).
+   */
+  onDeviceMessage(listener: DeviceMessageListener): BleListenerHandle {
+    this.deviceMessageListeners.add(listener);
+    return { remove: () => this.deviceMessageListeners.delete(listener) };
+  }
+
+  onDeviceInfoChange(listener: DeviceInfoListener): BleListenerHandle {
+    this.deviceInfoListeners.add(listener);
+    return { remove: () => this.deviceInfoListeners.delete(listener) };
   }
 
   // ── nRF5340 DK bench firmware only ───────────────────────────────────────
@@ -304,6 +352,7 @@ export class BleConnectionManager {
 
     this.disconnectSub?.remove();
     this.disconnectSub = null;
+    this.teardownDeviceMessages();
     this.teardownBenchControls();
 
     const device = this.device;
@@ -336,10 +385,13 @@ export class BleConnectionManager {
     this.disconnectSub?.remove();
     this.adapterStateSub?.remove();
     this.appStateSub?.remove();
+    this.teardownDeviceMessages();
     this.teardownBenchControls();
     this.statusListeners.clear();
     this.queueListeners.clear();
     this.errorListeners.clear();
+    this.deviceMessageListeners.clear();
+    this.deviceInfoListeners.clear();
     this.benchAvailableListeners.clear();
     this.benchVolumeListeners.clear();
     this.benchFreqRangeListeners.clear();
@@ -415,6 +467,10 @@ export class BleConnectionManager {
       this.handleUnexpectedDisconnect(),
     );
 
+    // Subscribe to NUS TX before anything is written, so the very first ack
+    // (and the boot event the firmware sends on connect) is never missed.
+    this.setupDeviceMessages(device);
+
     this.setStatus('connected');
     this.flushQueue();
 
@@ -462,6 +518,67 @@ export class BleConnectionManager {
     );
   }
 
+  // ── Device → app messages (NUS TX) ───────────────────────────────────────
+
+  private setupDeviceMessages(device: Device): void {
+    this.nusTxSub?.remove();
+    this.rxLines.reset();
+    this.setDeviceInfo(null);
+
+    this.nusTxSub = device.monitorCharacteristicForService(
+      UART_SERVICE_UUID,
+      UART_TX_CHAR_UUID,
+      (error, char) => {
+        if (error || !char?.value) return;
+        if (this.device !== device) return; // stale subscription from a previous link
+        let text: string;
+        try {
+          text = base64ToUtf8(char.value);
+        } catch {
+          return; // not valid base64/UTF-8 — nothing this app can use
+        }
+        for (const line of this.rxLines.feed(text)) {
+          const message = parseDeviceLine(line);
+          if (message) this.handleDeviceMessage(message);
+        }
+      },
+    );
+  }
+
+  private teardownDeviceMessages(): void {
+    this.nusTxSub?.remove();
+    this.nusTxSub = null;
+    this.rxLines.reset();
+    this.setDeviceInfo(null);
+  }
+
+  private handleDeviceMessage(message: DeviceMessage): void {
+    if (message.kind === 'event' && message.event === 'boot') {
+      this.setDeviceInfo({
+        fw: message.fw,
+        fdspRate: message.fdspRate,
+        dacSource: message.dacSource,
+      });
+    }
+    this.deviceMessageListeners.forEach((listener) => listener(message));
+  }
+
+  private setDeviceInfo(info: DeviceBootInfo | null): void {
+    const prev = this.deviceInfo;
+    if (prev === info) return;
+    if (
+      prev &&
+      info &&
+      prev.fw === info.fw &&
+      prev.fdspRate === info.fdspRate &&
+      prev.dacSource === info.dacSource
+    ) {
+      return;
+    }
+    this.deviceInfo = info;
+    this.deviceInfoListeners.forEach((listener) => listener(info));
+  }
+
   private teardownBenchControls(): void {
     this.benchVolumeSub?.remove();
     this.benchVolumeSub = null;
@@ -476,6 +593,7 @@ export class BleConnectionManager {
     this.disconnectSub?.remove();
     this.disconnectSub = null;
     this.device = null;
+    this.teardownDeviceMessages();
     this.teardownBenchControls();
 
     if (this.autoReconnect) {

@@ -52,6 +52,36 @@ Verified on physical hardware: a `TONE_START` with no follow-up produces
 ms, auto-silencing` in the firmware's log, and the tone stops with zero
 further input. See `haven-zephyr-app` commit `a8f38cf`.
 
+## What the device tells the app back (haven-zephyr-app PR #12)
+
+The firmware now acks every line and sends two events (see
+[ble-protocol.md](ble-protocol.md)). Three of them are safety-relevant here:
+
+- **`{"event":"boot", …, "dac_source":…}` is a gate, not a label.** The
+  smoke-test firmware build (`dmic_direct`) routes the microphone straight
+  to the DAC with *no DSP and no limiter in the path*. On that build the LDL
+  test and the match tones are disabled: the Hearing tab says so, and
+  `useLdlTone` / `usePreviewTone` refuse to start independently of the UI
+  (`hearingTestsAllowed()`, allow-list `LIMITER_SAFE_DAC_SOURCES` in
+  `constants/safety.ts` — an unrecognised source is treated as unsafe).
+  Before a boot event arrives the gate is open, because the firmware's own
+  85 dB clamp and watchdog still apply; the gate only ever *adds* a refusal.
+- **`{"event":"tone_watchdog"}` means the device already went silent on its
+  own.** The app treats it as an external stop: timers cleared, state idle,
+  no `TONE_STOP` sent, and the LDL step is *aborted* — no result is saved
+  (neither a discomfort level nor "comfortable up to the cap"), the run ends,
+  and the intro screen says why. A ramp cut off for a non-user reason is not
+  a measurement.
+- **`TONE_*` acks echo the level the device applied, after its own clamp.**
+  If that differs from what the app sent, the meter shows the applied value
+  (itself clamped to `MAX_TONE_LEVEL_DB` — an echo can lower the meter,
+  never raise it past the app's ceiling). Today the two can only differ if
+  one side's cap were loosened, so this is a cheap consistency check that
+  makes such a mistake visible instead of silent.
+
+None of this weakens an invariant above: acks are best-effort confirmation,
+so the app never *waits* on one to stop a tone.
+
 ## Not yet calibrated — read this before trusting any dB number
 
 Every level in this document and in `src/constants/safety.ts` — the 85 dB

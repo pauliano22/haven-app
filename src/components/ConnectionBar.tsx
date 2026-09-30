@@ -37,7 +37,7 @@ function statusConfig(
 }
 
 export function ConnectionBar() {
-  const { status, queuedCount, connect, disconnect } = useBle();
+  const { status, queuedCount, connect, disconnect, deviceInfo } = useBle();
   const { theme } = useTheme();
   const c = theme.colors;
   const reduceMotion = useReducedMotion();
@@ -102,6 +102,14 @@ export function ConnectionBar() {
             />
           )}
           <Text style={[styles.statusLabel, { color }]}>{label}</Text>
+          {isConnected && deviceInfo && (
+            // Which firmware we're talking to (boot event) -- so a result or
+            // a bug report can name it. Bench builds get called out plainly.
+            <Text style={styles.queuedLabel} accessibilityLabel={`Firmware ${deviceInfo.fw}`}>
+              fw {deviceInfo.fw}
+              {deviceInfo.dacSource !== 'fdsp' ? ` · ${deviceInfo.dacSource}` : ''}
+            </Text>
+          )}
           {queuedCount > 0 && !isConnected && (
             <Text style={styles.queuedLabel}>
               {queuedCount} queued

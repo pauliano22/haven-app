@@ -8,6 +8,7 @@ import {
   MAX_TONE_LEVEL_DB,
 } from '../constants/safety';
 import { useBle } from '../context/BleContext';
+import { hearingTestsAllowed } from '../utils/deviceMessages';
 
 export type ToneState = 'idle' | 'ramping' | 'held-at-cap';
 
@@ -15,6 +16,12 @@ export interface ToneStopInfo {
   levelDb: number;
   /** True when the ramp reached MAX_TONE_LEVEL_DB without a user stop. */
   cappedOut: boolean;
+  /**
+   * True when the *device* ended the tone on its own (its keep-alive
+   * watchdog fired, `{"event":"tone_watchdog"}`). The ramp was cut off for a
+   * non-user reason, so the step has no result — callers must not record one.
+   */
+  aborted?: boolean;
 }
 
 /**
@@ -27,9 +34,15 @@ export interface ToneStopInfo {
  *   LDL_MAX_TONE_DURATION_MS fail-safe, BLE link loss, and unmount.
  * - Tones refuse to start unless the BLE link is currently connected, so a
  *   stale TONE_START can never replay from the offline queue.
+ * - Tones refuse to start when the connected firmware announced a DAC path
+ *   without the output limiter (boot event, utils/deviceMessages.ts).
+ * - A `tone_watchdog` event from the device is treated as an external stop:
+ *   timers cleared, state idle, the step reported as aborted (no result).
+ * - TONE_* acks echo the level the device actually applied; the meter shows
+ *   that value, never a requested one the firmware clamped down.
  */
 export function useLdlTone() {
-  const { status, sendPayload } = useBle();
+  const { status, sendPayload, deviceInfo, onDeviceMessage } = useBle();
 
   const [toneState, setToneState] = useState<ToneState>('idle');
   const [levelDb, setLevelDb] = useState(LDL_START_LEVEL_DB);
@@ -63,6 +76,8 @@ export function useLdlTone() {
     (f0: number, onAutoStop: (info: ToneStopInfo) => void): boolean => {
       // Never start a tone that would sit in the offline queue and replay later.
       if (status !== 'connected') return false;
+      // Never play a test tone through a build with no limiter in the path.
+      if (!hearingTestsAllowed(deviceInfo)) return false;
       if (stateRef.current !== 'idle') stop();
 
       const startLevel = clampToneLevel(LDL_START_LEVEL_DB);
@@ -101,8 +116,40 @@ export function useLdlTone() {
 
       return true;
     },
-    [status, sendPayload, stop, clearTimers],
+    [status, deviceInfo, sendPayload, stop, clearTimers],
   );
+
+  // Device → app messages: the watchdog abort and the applied-level echo.
+  useEffect(() => {
+    const sub = onDeviceMessage((message) => {
+      if (stateRef.current === 'idle') return;
+
+      if (message.kind === 'event' && message.event === 'tone_watchdog') {
+        // The device has already silenced itself; do not send TONE_STOP (it
+        // would only be acked) — just fall silent on our side and report it.
+        clearTimers();
+        const info: ToneStopInfo = { levelDb: levelRef.current, cappedOut: false, aborted: true };
+        stateRef.current = 'idle';
+        setToneState('idle');
+        onCapRef.current?.(info);
+        return;
+      }
+
+      if (
+        message.kind === 'ack' &&
+        message.ok &&
+        (message.cmd === 'TONE_START' || message.cmd === 'TONE_LEVEL') &&
+        message.levelDb !== levelRef.current
+      ) {
+        // The firmware clamped (or rounded) what we sent: show what is
+        // actually playing. Its ceiling can only ever be at or below ours.
+        const applied = clampToneLevel(message.levelDb);
+        levelRef.current = applied;
+        setLevelDb(applied);
+      }
+    });
+    return () => sub.remove();
+  }, [onDeviceMessage, clearTimers]);
 
   // Kill the tone the instant the link drops mid-test.
   useEffect(() => {

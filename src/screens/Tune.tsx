@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { BandTunerCard } from '../components/BandTunerCard';
 import { ComfortCheckIn, ComfortDirection } from '../components/ComfortCheckIn';
 import { ConnectionBar } from '../components/ConnectionBar';
 import { LdlDriftCard } from '../components/LdlDriftCard';
@@ -31,6 +32,7 @@ import { ColorPalette, RADIUS, SANS_FONT, SERIF_FONT } from '../constants/theme'
 import { useBle } from '../context/BleContext';
 import { useFilters } from '../context/FilterContext';
 import { useTheme } from '../context/ThemeContext';
+import { useBandTuner } from '../hooks/useBandTuner';
 import { useComfortPrompt } from '../hooks/useComfortPrompt';
 import { useDebouncedCallback } from '../hooks/useDebounce';
 import { useLdlDrift } from '../hooks/useLdlDrift';
@@ -60,22 +62,27 @@ export function Tune() {
   const styles = useMemo(() => makeStyles(c), [c]);
 
   // A simple nudge, not a real per-user model -- see constants/comfort.ts.
-  const { shouldPrompt, recordResponse } = useComfortPrompt(status === 'connected' && !bypass);
+  // `history` also feeds the tolerance plan's adaptive pacing below.
+  const { shouldPrompt, history: comfortHistory, recordResponse } = useComfortPrompt(
+    status === 'connected' && !bypass,
+  );
   const handleComfortRespond = useCallback(
     (direction: ComfortDirection) => {
       if (direction !== 'same') {
         const delta = direction === 'weaker' ? -COMFORT_ADJUST_STEP_DB : COMFORT_ADJUST_STEP_DB;
         updateSelected({ attenDb: nudgeAtten(selectedBand.attenDb, delta) });
       }
-      recordResponse();
+      recordResponse(direction);
     },
     [selectedBand.attenDb, updateSelected, recordResponse],
   );
 
   // ── Tolerance-building plan ────────────────────────────────────────────
   // See constants/tolerance.ts for why this only ever reduces softening on
-  // explicit confirmation, never automatically.
-  const { plan, loaded: planLoaded, dueForStep, startPlan, stopPlan, advanceStep } = useTolerancePlan();
+  // explicit confirmation, never automatically. Pacing between steps adapts
+  // to recent comfort responses -- see utils/tolerancePacing.ts.
+  const { plan, loaded: planLoaded, dueForStep, intervalMs, startPlan, stopPlan, advanceStep } =
+    useTolerancePlan(comfortHistory);
   const planBand = plan ? bands.find((b) => b.id === plan.bandId) : undefined;
 
   // If the plan's band was removed (e.g. via the × on a band chip), the plan
@@ -91,6 +98,13 @@ export function Tune() {
   }, [plan, planBand, updateBand, advanceStep]);
 
   const canStartPlan = planLoaded && !plan && selectedBand.attenDb > ATTEN_MIN_DB;
+
+  // ── Preference-guided tuner ─────────────────────────────────────────────
+  // A short series of A/B comparisons that finds a depth+width for the
+  // selected band without manual slider guesswork -- see useBandTuner.ts.
+  // Not a learned model; frequency is never touched by it.
+  const tuner = useBandTuner(selectedId);
+  const canStartTuner = status === 'connected' && !bypass && !tuner.active;
 
   // ── LDL drift (over-protection) warning ───────────────────────────────
   // Detection lives in utils/ldlDrift.ts; this only offers to pause the band
@@ -270,6 +284,7 @@ export function Tune() {
             plan={plan}
             currentAttenDb={planBand.attenDb}
             dueForStep={dueForStep}
+            intervalMs={intervalMs}
             onAdvance={handleAdvancePlan}
             onStop={stopPlan}
           />
@@ -283,6 +298,21 @@ export function Tune() {
           >
             <Text style={styles.startPlanText}>Build tolerance for this sound →</Text>
           </TouchableOpacity>
+        )}
+
+        {tuner.active ? (
+          <BandTunerCard tuner={tuner} />
+        ) : (
+          canStartTuner && (
+            <TouchableOpacity
+              style={styles.startPlanLink}
+              onPress={tuner.start}
+              accessibilityRole="button"
+              accessibilityLabel="Help me find a better setting"
+            >
+              <Text style={styles.startPlanText}>Help me find a better setting →</Text>
+            </TouchableOpacity>
+          )
         )}
 
         {/* ── Frequency ────────────────────────────────  */}

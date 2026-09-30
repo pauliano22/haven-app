@@ -41,7 +41,7 @@ interface Props {
 }
 
 export function PitchMatchTest({ onBack }: Props) {
-  const { status } = useBle();
+  const { status, deviceInfo } = useBle();
   const { applyBands } = useFilters();
   const { theme } = useTheme();
   const c = theme.colors;
@@ -52,6 +52,8 @@ export function PitchMatchTest({ onBack }: Props) {
   const [phase, setPhase] = useState<Phase>('intro');
   const [botherBefore, setBotherBefore] = useState<number | null>(null);
   const [history, setHistory] = useState<MatchRun[]>([]);
+  /** Firmware the run's tones came from, captured at begin (see LdlTest). */
+  const fwRef = useRef<string | undefined>(undefined);
 
   // Tones are capped by the user's own comfort test when one exists -- see
   // utils/matchLevel.ts and docs/safety.md. Loaded once per screen; a test
@@ -110,8 +112,9 @@ export function PitchMatchTest({ onBack }: Props) {
     resetPitchState();
     setLoudnessMatched(false);
     setLoudnessDb(levels.loudnessStartDb);
+    fwRef.current = deviceInfo?.fw;
     setPhase('pitch');
-  }, [resetPitchState, levels.loudnessStartDb]);
+  }, [resetPitchState, levels.loudnessStartDb, deviceInfo?.fw]);
 
   const handlePlayPitch = useCallback(
     (which: 'A' | 'B') => {
@@ -196,6 +199,7 @@ export function PitchMatchTest({ onBack }: Props) {
         loudnessDb: finalLoudnessDb,
         botherScore: botherBefore,
         octaveCorrected,
+        ...(fwRef.current ? { fw: fwRef.current } : {}),
       };
       saveMatchRun(run).then(() => setHistory((prev) => [run, ...prev]));
     },

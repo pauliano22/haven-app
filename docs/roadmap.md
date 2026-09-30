@@ -63,14 +63,30 @@ dev-client build section) before considering it done.
   band's `attenDb` by a fixed 3dB step and gates itself to once per 24h.
   Deliberately framed as a simple nudge, not a real per-user ML model —
   see `constants/comfort.ts`.
+- **Preference-guided tuner** (2026-09-27): an opt-in "Help me find a better
+  setting →" flow on Tune that runs a short series of A/B comparisons to
+  converge on a depth (`attenDb`) and width (`Q`) for the selected band,
+  instead of manual slider guesswork. Not a learned model — see
+  [preference-tuner.md](preference-tuner.md) for the algorithm, its stated
+  assumptions, and why it's an honest (if much smaller) analog to
+  commercial hearing aids' A/B preference-learning features rather than
+  anything trained on data. Frequency is never touched by it.
 - **Tolerance-building plan** (`TolerancePlanCard`, Tune screen): an
   opt-in, one-band-at-a-time plan that reduces `attenDb` by a fixed 3dB
-  step per week, only ever on an explicit tap (never automatic). Honest
-  about what Haven's hardware can and can't do here — it has no broadband
-  noise generator, so this can't be real sound-generator-based hyperacusis
+  step, only ever on an explicit tap (never automatic). Honest about what
+  Haven's hardware can and can't do here — it has no broadband noise
+  generator, so this can't be real sound-generator-based hyperacusis
   therapy; what it *can* do is help counter over-protection (a real,
   documented risk) by gradually easing softening back down. See
   `constants/tolerance.ts`.
+  **2026-09-27: the wait between steps is now adaptive**, not a fixed
+  week — it doubles after two "too strong" comfort responses and halves
+  (down to a floor) after two comfortable ones, using history the comfort
+  check-in now actually persists (`ComfortHistoryStore`, previously only
+  the last-prompted timestamp was kept). Deliberately a plain rule, not a
+  bandit — see `utils/tolerancePacing.ts` for why the data density here
+  doesn't support one, unlike the depth/width tuner. 25 new tests across
+  the new store, the pacing function, and both hooks.
 - **Clinical-review follow-ups** (2026-09-11), from `docs/clinical-basis.md`:
   an **octave check** after pitch bisection (`OctaveCheckStep`, match vs f/2
   and 2f; `MatchRun.octaveCorrected`), an **LDL-aware match level**
@@ -152,10 +168,19 @@ What actually remains:
 - Verify the redesign on a real iPhone via a dev-client build (see
   app-guide.md — plain Expo Go won't work, `react-native-ble-plx` needs a
   custom build).
-- Subscribe to NUS TX for device→app acks; surface "applied"/error state
+- ~~Subscribe to NUS TX for device→app acks; surface "applied"/error state
   somewhere in the new UI (the old TX monitor was intentionally removed as
   too engineering-facing — replace with a quiet toast or Home-screen state,
-  not a JSON dump).
+  not a JSON dump).~~ Done (`feature/device-acks-app-side`), against the
+  wire format of haven-zephyr-app PR #12 (`docs/nus-acks.md` /
+  `docs/app-side.md`) — see [ble-protocol.md](ble-protocol.md) "Messages
+  (device → app)". All five app-side actions from that hand-off are in:
+  quiet Applied / Couldn't-apply toast on Home with UI rollback on
+  `ok:false`; `tone_watchdog` → LDL step aborted, no result; `boot` with a
+  no-limiter `dac_source` → hearing tests disabled (safety gate); `fw` shown
+  in the connection bar and stored on LDL/match runs; clamped `level_db`
+  echoes drive the meter. **Supersedes PR #9**, which parsed the closed
+  #15's `{"type":"ACK"}` shape; its quiet-toast UI pattern was kept.
 - Calibration story: `level_db` is currently nominal — map commanded dB to
   real acoustic output once hardware exists.
 - ~~Tests: unit-test `BleConnectionManager` queue/reconnect logic and

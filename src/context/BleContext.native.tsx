@@ -10,7 +10,13 @@ import {
   BleErrorContext,
   getBleConnectionManager,
 } from '../services/BleConnectionManager';
-import { BenchFreqRange, BleContextValue, DspPayload } from '../types';
+import {
+  BenchFreqRange,
+  BleContextValue,
+  DeviceMessage,
+  DspPayload,
+  TimestampedDeviceMessage,
+} from '../types';
 
 const BleContext = createContext<BleContextValue | null>(null);
 
@@ -31,11 +37,15 @@ export function BleProvider({ children }: { children: React.ReactNode }) {
   const [benchAvailable, setBenchAvailable] = useState(() => manager.isBenchAvailable());
   const [benchVolume, setBenchVolumeState] = useState(() => manager.getBenchVolume());
   const [benchFreqRange, setBenchFreqRangeState] = useState(() => manager.getBenchFreqRange());
+  const [lastMessage, setLastMessage] = useState<TimestampedDeviceMessage | null>(null);
+  const [deviceInfo, setDeviceInfo] = useState(() => manager.getDeviceInfo());
 
   useEffect(() => {
     const subs = [
       manager.onStatusChange(setStatus),
       manager.onQueueChange(setQueuedCount),
+      manager.onDeviceMessage((message) => setLastMessage({ message, at: Date.now() })),
+      manager.onDeviceInfoChange(setDeviceInfo),
       manager.onBenchAvailableChange(setBenchAvailable),
       manager.onBenchVolumeChange(setBenchVolumeState),
       manager.onBenchFreqRangeChange(setBenchFreqRangeState),
@@ -64,6 +74,11 @@ export function BleProvider({ children }: { children: React.ReactNode }) {
     [manager],
   );
 
+  const onDeviceMessage = useCallback(
+    (listener: (message: DeviceMessage) => void) => manager.onDeviceMessage(listener),
+    [manager],
+  );
+
   const setBenchVolume = useCallback(
     (percent: number) => manager.setBenchVolume(percent),
     [manager],
@@ -82,6 +97,9 @@ export function BleProvider({ children }: { children: React.ReactNode }) {
         connect,
         disconnect,
         sendPayload,
+        lastMessage,
+        deviceInfo,
+        onDeviceMessage,
         benchAvailable,
         benchVolume,
         benchFreqRange,
