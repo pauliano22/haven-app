@@ -2,11 +2,26 @@ import { act, renderHook } from '@testing-library/react-native';
 import { MAX_TONE_LEVEL_DB } from '../constants/safety';
 import { usePreviewTone } from './usePreviewTone';
 
+import { DeviceBootInfo, DeviceMessage } from '../types';
+
 const mockSendPayload = jest.fn();
 let mockStatus = 'connected';
+let mockDeviceInfo: DeviceBootInfo | null = null;
+const mockDeviceListeners = new Set<(m: DeviceMessage) => void>();
+function deviceSays(message: DeviceMessage) {
+  mockDeviceListeners.forEach((l) => l(message));
+}
 
 jest.mock('../context/BleContext', () => ({
-  useBle: () => ({ status: mockStatus, sendPayload: mockSendPayload }),
+  useBle: () => ({
+    status: mockStatus,
+    sendPayload: mockSendPayload,
+    deviceInfo: mockDeviceInfo,
+    onDeviceMessage: (listener: (m: DeviceMessage) => void) => {
+      mockDeviceListeners.add(listener);
+      return { remove: () => mockDeviceListeners.delete(listener) };
+    },
+  }),
 }));
 
 describe('usePreviewTone', () => {
@@ -14,6 +29,8 @@ describe('usePreviewTone', () => {
     jest.useFakeTimers();
     mockSendPayload.mockClear();
     mockStatus = 'connected';
+    mockDeviceInfo = null;
+    mockDeviceListeners.clear();
   });
 
   afterEach(() => {
@@ -112,5 +129,43 @@ describe('usePreviewTone', () => {
 
     expect(result.current.playing).toBe(false);
     expect(mockSendPayload).toHaveBeenLastCalledWith({ type: 'TONE_STOP' });
+  });
+
+  it('refuses to play against a no-limiter build (boot event dac_source dmic_direct)', () => {
+    mockDeviceInfo = { fw: '0.1.0-dev', fdspRate: 192000, dacSource: 'dmic_direct' };
+    const { result } = renderHook(() => usePreviewTone());
+
+    let started = true;
+    act(() => {
+      started = result.current.play(1000, 55, 1400);
+    });
+
+    expect(started).toBe(false);
+    expect(mockSendPayload).not.toHaveBeenCalled();
+  });
+
+  it('a device tone_watchdog event ends the burst on our side without a redundant TONE_STOP', () => {
+    const onDone = jest.fn();
+    const { result } = renderHook(() => usePreviewTone());
+
+    act(() => {
+      result.current.play(1000, 55, 1400, onDone);
+    });
+    expect(result.current.playing).toBe(true);
+    mockSendPayload.mockClear();
+
+    act(() => {
+      deviceSays({ kind: 'event', event: 'tone_watchdog' });
+    });
+
+    expect(result.current.playing).toBe(false);
+    expect(mockSendPayload).not.toHaveBeenCalled();
+
+    // The burst timer was cancelled too: no TONE_STOP later, no onDone.
+    act(() => {
+      jest.advanceTimersByTime(1400);
+    });
+    expect(mockSendPayload).not.toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
   });
 });

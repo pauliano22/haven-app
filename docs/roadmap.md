@@ -138,10 +138,19 @@ What actually remains:
 - Verify the redesign on a real iPhone via a dev-client build (see
   app-guide.md — plain Expo Go won't work, `react-native-ble-plx` needs a
   custom build).
-- Subscribe to NUS TX for device→app acks; surface "applied"/error state
+- ~~Subscribe to NUS TX for device→app acks; surface "applied"/error state
   somewhere in the new UI (the old TX monitor was intentionally removed as
   too engineering-facing — replace with a quiet toast or Home-screen state,
-  not a JSON dump).
+  not a JSON dump).~~ Done (`feature/device-acks-app-side`), against the
+  wire format of haven-zephyr-app PR #12 (`docs/nus-acks.md` /
+  `docs/app-side.md`) — see [ble-protocol.md](ble-protocol.md) "Messages
+  (device → app)". All five app-side actions from that hand-off are in:
+  quiet Applied / Couldn't-apply toast on Home with UI rollback on
+  `ok:false`; `tone_watchdog` → LDL step aborted, no result; `boot` with a
+  no-limiter `dac_source` → hearing tests disabled (safety gate); `fw` shown
+  in the connection bar and stored on LDL/match runs; clamped `level_db`
+  echoes drive the meter. **Supersedes PR #9**, which parsed the closed
+  #15's `{"type":"ACK"}` shape; its quiet-toast UI pattern was kept.
 - Calibration story: `level_db` is currently nominal — map commanded dB to
   real acoustic output once hardware exists.
 - ~~Tests: unit-test `BleConnectionManager` queue/reconnect logic and

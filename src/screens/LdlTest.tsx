@@ -52,7 +52,7 @@ interface Props {
 }
 
 export function LdlTest({ onBack }: Props) {
-  const { status } = useBle();
+  const { status, deviceInfo } = useBle();
   const { applyBands } = useFilters();
   const { theme } = useTheme();
   const c = theme.colors;
@@ -62,8 +62,13 @@ export function LdlTest({ onBack }: Props) {
   const [stepIndex, setStepIndex] = useState(0);
   const [results, setResults] = useState<LdlResult[]>([]);
   const [history, setHistory] = useState<LdlRun[]>([]);
+  /** Set when the device ended a tone on its own (tone_watchdog); shown on the intro. */
+  const [abortNotice, setAbortNotice] = useState<string | null>(null);
   const stepIndexRef = useRef(0);
   const resultsRef = useRef<LdlResult[]>([]);
+  // Captured when the test begins so a mid-test reconnect to different
+  // firmware can't relabel a run that mostly ran on the previous one.
+  const fwRef = useRef<string | undefined>(undefined);
 
   const connected = status === 'connected';
   const frequencies = LDL_TEST_FREQUENCIES_HZ;
@@ -84,7 +89,11 @@ export function LdlTest({ onBack }: Props) {
         setPhase('results');
         // A full pass through every test frequency -- this is what "completed" means
         // here; an aborted-early run (handleAbort) is deliberately not saved.
-        const run: LdlRun = { timestamp: Date.now(), results: resultsRef.current };
+        const run: LdlRun = {
+          timestamp: Date.now(),
+          results: resultsRef.current,
+          ...(fwRef.current ? { fw: fwRef.current } : {}),
+        };
         saveLdlRun(run).then(() => setHistory((prev) => [run, ...prev]));
       } else {
         stepIndexRef.current = next;
@@ -97,10 +106,21 @@ export function LdlTest({ onBack }: Props) {
   const startCurrentTone = useCallback(() => {
     const f0 = frequencies[stepIndexRef.current];
     const ok = start(f0, (info: ToneStopInfo) => {
+      if (info.aborted) {
+        // The device's own keep-alive watchdog silenced the tone -- the ramp
+        // was cut off for a non-user reason. That is not "comfortable up to
+        // the cap" and not a discomfort level either: record nothing, end the
+        // run, and say why (docs/safety.md).
+        setAbortNotice(
+          'The device stopped the tone on its own (its safety watchdog fired), so this test was ended without recording that frequency. Check the connection and try again.',
+        );
+        setPhase(resultsRef.current.length > 0 ? 'results' : 'intro');
+        return;
+      }
       // Auto-stop (safety cap / fail-safe): comfortable up to the limit.
       advance({ f0, ldlDb: info.cappedOut ? null : info.levelDb });
     });
-    if (!ok) setPhase('intro'); // link dropped between screens
+    if (!ok) setPhase('intro'); // link dropped between screens, or a no-limiter build
   }, [frequencies, start, advance]);
 
   // Kick off each tone when entering/advancing through the testing phase.
@@ -118,10 +138,12 @@ export function LdlTest({ onBack }: Props) {
   const handleBegin = useCallback(() => {
     resultsRef.current = [];
     setResults([]);
+    setAbortNotice(null);
+    fwRef.current = deviceInfo?.fw;
     stepIndexRef.current = 0;
     setStepIndex(0);
     setPhase('testing');
-  }, []);
+  }, [deviceInfo?.fw]);
 
   const handleUncomfortable = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -162,6 +184,11 @@ export function LdlTest({ onBack }: Props) {
 
       {phase === 'intro' && (
         <>
+          {abortNotice && (
+            <Text style={[styles.abortNotice, { color: c.statusDisconnected }]} accessibilityRole="alert">
+              {abortNotice}
+            </Text>
+          )}
           <LdlIntro connected={connected} onStart={handleBegin} />
           <LdlHistory runs={history} />
         </>
@@ -194,6 +221,13 @@ export function LdlTest({ onBack }: Props) {
 
 const styles = StyleSheet.create({
   backLink: { marginBottom: 10 },
+  abortNotice: {
+    fontFamily: SANS_FONT,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
   backText: {
     fontSize: 13,
     fontFamily: SANS_FONT,

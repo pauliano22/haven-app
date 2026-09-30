@@ -77,6 +77,15 @@ export const MATCH_LDL_MARGIN_DB = 10;
 export const LDL_DRIFT_WARN_DB = 10;
 
 /**
+ * Firmware output paths that carry the output limiter. The firmware's boot
+ * event names its `dac_source`; only these values may run the LDL test or
+ * the match tones. `dmic_direct` (the no-DSP smoke-test build) has no
+ * limiter in the path at all, and any value this app doesn't recognise is
+ * treated the same way. Allow-list, never a deny-list, on purpose.
+ */
+export const LIMITER_SAFE_DAC_SOURCES: readonly string[] = ['fdsp'];
+
+/**
  * Clamp a requested tone level into the permitted range.
  * All tone payload construction MUST route through this function.
  */
