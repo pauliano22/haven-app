@@ -39,7 +39,8 @@
     "preset": "jest-expo",
     "testPathIgnorePatterns": [
       "/node_modules/",
-      "/.expo/"
+      "/.expo/",
+      "/server/"
     ],
     "setupFiles": [
       "<rootDir>/jest.setup.js"

@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ConnectionBar } from '../components/ConnectionBar';
+import { InsightsSummaryCard } from '../components/InsightsSummaryCard';
 import { ColorPalette, RADIUS, RADIUS_SM, SANS_FONT, SERIF_FONT } from '../constants/theme';
 import { useBle } from '../context/BleContext';
 import { useTheme } from '../context/ThemeContext';
+import { useHearingInsights } from '../hooks/useHearingInsights';
 import { HEARING_TESTS_DISABLED_TEXT, hearingTestsAllowed } from '../utils/deviceMessages';
+import { hasRealData } from '../utils/insights';
 import { CheckIn } from './CheckIn';
 import { LdlTest } from './LdlTest';
 import { PitchMatchTest } from './PitchMatchTest';
@@ -45,6 +48,11 @@ export function Hearing() {
   const c = theme.colors;
   const styles = makeStyles(c);
 
+  // No LlmClient anywhere in this app yet -- see docs/llm-summary.md. This
+  // is the deterministic-only mode, permanent until a real backend exists,
+  // not a temporary stub.
+  const { loading: insightsLoading, insights, summaryText, summarySource } = useHearingInsights();
+
   // Safety gate (docs/safety.md): the firmware's boot event says which output
   // path it was built with. A bench build without the limiter must not play
   // test tones. The tone hooks refuse independently; this just explains why.
@@ -69,6 +77,10 @@ export function Hearing() {
                 <Text style={styles.gateTitle}>Hearing tests disabled</Text>
                 <Text style={styles.gateText}>{HEARING_TESTS_DISABLED_TEXT}</Text>
               </View>
+            )}
+
+            {!insightsLoading && hasRealData(insights) && (
+              <InsightsSummaryCard summaryText={summaryText} summarySource={summarySource} />
             )}
 
             <ToolCard
