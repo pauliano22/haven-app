@@ -14,6 +14,7 @@ import {
   Q_DEFAULT,
 } from '../constants/dsp';
 import { useDebouncedCallback } from '../hooks/useDebounce';
+import { logExposure } from '../services/ExposureLog';
 import { getFilterProfile, saveFilterProfile } from '../services/FilterStore';
 import { FilterBand, WireFilterBand } from '../types';
 import { useBle } from './BleContext';
@@ -67,8 +68,16 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
   const [bypass, setBypassState] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
+  // Every band set that reaches the device is also logged (consent-gated
+  // inside logExposure) -- the outcome check-ins are meaningless without
+  // knowing what was being softened at the time.
+  const logBands = useCallback((next: FilterBand[]) => {
+    logExposure('bands', { bands: next.map((b) => ({ f0: b.f0, q: b.q, atten: b.attenDb })) });
+  }, []);
+
   const debouncedSend = useDebouncedCallback((next: FilterBand[]) => {
     sendPayload({ type: 'MULTI_FILTER', bands: toWireBands(next) });
+    logBands(next);
   }, 100);
 
   // Same reasoning as debouncedSend above: a slider drag fires many bands
@@ -108,10 +117,19 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
   // connection, so reconnecting doesn't leave the device on whatever it
   // last had (or its own default) instead of the user's chosen settings.
   const syncedThisConnectionRef = useRef(false);
+  const wasConnectedRef = useRef(false);
   useEffect(() => {
     if (status !== 'connected') {
+      if (wasConnectedRef.current) {
+        wasConnectedRef.current = false;
+        logExposure('disconnected');
+      }
       syncedThisConnectionRef.current = false;
       return;
+    }
+    if (!wasConnectedRef.current) {
+      wasConnectedRef.current = true;
+      logExposure('connected', { bypass, bands: bands.length });
     }
     if (!hydrated || syncedThisConnectionRef.current) return;
     syncedThisConnectionRef.current = true;
@@ -119,6 +137,7 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       sendPayload({ type: 'BYPASS', enabled: true });
     } else {
       sendPayload({ type: 'MULTI_FILTER', bands: toWireBands(bands) });
+      logBands(bands);
     }
     // Deliberately re-checks bands/bypass only via the ref guard above —
     // this should fire once per connection, not on every subsequent edit.
@@ -175,13 +194,15 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
   const setBypass = useCallback(
     (enabled: boolean) => {
       setBypassState(enabled);
+      logExposure('bypass', { enabled });
       if (enabled) {
         sendPayload({ type: 'BYPASS', enabled: true });
       } else {
         sendPayload({ type: 'MULTI_FILTER', bands: toWireBands(bands) });
+        logBands(bands);
       }
     },
-    [bands, sendPayload],
+    [bands, sendPayload, logBands],
   );
 
   const applyBands = useCallback(
@@ -191,8 +212,9 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
       setSelectedId(next[0].id);
       setBypassState(false);
       sendPayload({ type: 'MULTI_FILTER', bands: toWireBands(next) });
+      logBands(next);
     },
-    [sendPayload],
+    [sendPayload, logBands],
   );
 
   const selectedBand = bands.find(b => b.id === selectedId) ?? bands[0];
