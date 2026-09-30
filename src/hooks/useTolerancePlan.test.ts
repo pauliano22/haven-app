@@ -97,4 +97,68 @@ describe('useTolerancePlan', () => {
     expect(result.current.plan).toBeNull();
     expect(await AsyncStorage.getItem('haven.tolerancePlan.v1')).toBeNull();
   });
+
+  describe('adaptive pacing from recent comfort responses', () => {
+    const lastStepAt = Date.now() - TOLERANCE_STEP_INTERVAL_MS / 2; // halfway through the normal wait
+
+    async function seedPlan() {
+      await AsyncStorage.setItem(
+        'haven.tolerancePlan.v1',
+        JSON.stringify({ bandId: 'band-1', f0: 3200, startedAt: lastStepAt, lastStepAt, stepsCompleted: 0 }),
+      );
+    }
+
+    it('two comfortable responses since the last step make it due early', async () => {
+      await seedPlan();
+      const responses = [
+        { timestamp: lastStepAt + 1000, direction: 'same' as const },
+        { timestamp: lastStepAt + 2000, direction: 'same' as const },
+      ];
+
+      const { result } = renderHook(() => useTolerancePlan(responses));
+      await flushLoad();
+
+      // Halved interval means "due" at TOLERANCE_STEP_INTERVAL_MS / 4 after
+      // lastStepAt -- we're already at /2, well past that.
+      expect(result.current.dueForStep).toBe(true);
+    });
+
+    it('two "too strong" responses since the last step delay it past the normal wait', async () => {
+      await seedPlan();
+      const responses = [
+        { timestamp: lastStepAt + 1000, direction: 'weaker' as const },
+        { timestamp: lastStepAt + 2000, direction: 'weaker' as const },
+      ];
+
+      const { result } = renderHook(() => useTolerancePlan(responses));
+      await flushLoad();
+
+      // Doubled interval means not due until 2x the normal wait -- we're
+      // only at /2, nowhere close.
+      expect(result.current.dueForStep).toBe(false);
+    });
+
+    it('ignores comfort responses from before the plan last stepped', async () => {
+      await seedPlan();
+      const staleResponses = [
+        { timestamp: lastStepAt - 1000, direction: 'same' as const },
+        { timestamp: lastStepAt - 2000, direction: 'same' as const },
+      ];
+
+      const { result } = renderHook(() => useTolerancePlan(staleResponses));
+      await flushLoad();
+
+      // No responses actually count (both before lastStepAt) -- falls back
+      // to the unmodified base interval, so still not due at the halfway
+      // point.
+      expect(result.current.dueForStep).toBe(false);
+    });
+
+    it('defaults to the original fixed-interval behavior when called with no comfort history at all', async () => {
+      await seedPlan();
+      const { result } = renderHook(() => useTolerancePlan());
+      await flushLoad();
+      expect(result.current.dueForStep).toBe(false); // unmodified interval, only halfway through
+    });
+  });
 });

@@ -52,9 +52,18 @@ implementation plugs into (`{ complete(prompt): Promise<string> }`). Making
 this live for real needs, at minimum: a backend endpoint (holds the actual
 API key, receives a prompt, returns text — a few dozen lines), and an
 `LlmClient` implementation in the app that calls that endpoint instead of
-any LLM provider directly. Neither exists yet. Building the backend piece
-is a real, separate decision (it costs money to run and per API call, and
-someone has to operate it) — not something to spin up unilaterally.
+any LLM provider directly.
+
+**Both are now written and tested (2026-09-27), neither deployed or
+wired in.** `server/llm-relay/` is a reference Cloudflare Worker — 13 tests
+against a fully mocked Anthropic client, zero network access, no real key
+anywhere. `src/services/RemoteLlmClient.ts` is the app-side `LlmClient`
+that would call it, also tested (4 tests, mocked `fetch`), also not
+constructed or passed to `useHearingInsights()` anywhere in the app —
+every call site still passes `null`. Going live needs someone to actually
+deploy the relay (a real Cloudflare account and an API key, a few minutes
+of setup per `server/llm-relay/README.md`) — a real cost/ops decision, not
+something to do unilaterally. Everything else is done.
 
 ## Tests
 

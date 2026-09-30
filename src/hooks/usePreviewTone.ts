@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { clampToneLevel } from '../constants/safety';
 import { useBle } from '../context/BleContext';
+import { hearingTestsAllowed } from '../utils/deviceMessages';
 
 /**
  * Plays one short, fixed-duration tone burst at a time — no ramp, no
@@ -16,9 +17,12 @@ import { useBle } from '../context/BleContext';
  *   needed as long as the duration stays short (MATCH_BURST_DURATION_MS).
  * - Tones refuse to start unless the BLE link is connected, and are killed
  *   on link loss / unmount, exactly like useLdlTone.
+ * - Tones refuse to start when the firmware's boot event names a DAC path
+ *   without the output limiter; a device `tone_watchdog` event ends the
+ *   burst on our side too (no TONE_STOP sent — it is already silent).
  */
 export function usePreviewTone() {
-  const { status, sendPayload } = useBle();
+  const { status, sendPayload, deviceInfo, onDeviceMessage } = useBle();
 
   const [playing, setPlaying] = useState(false);
   const playingRef = useRef(false);
@@ -37,6 +41,7 @@ export function usePreviewTone() {
   const play = useCallback(
     (f0: number, levelDb: number, durationMs: number, onDone?: () => void): boolean => {
       if (status !== 'connected') return false;
+      if (!hearingTestsAllowed(deviceInfo)) return false;
       if (playingRef.current) stop();
 
       playingRef.current = true;
@@ -49,8 +54,21 @@ export function usePreviewTone() {
       }, durationMs);
       return true;
     },
-    [status, sendPayload, stop],
+    [status, deviceInfo, sendPayload, stop],
   );
+
+  // The device silenced itself (keep-alive watchdog): mirror that state.
+  useEffect(() => {
+    const sub = onDeviceMessage((message) => {
+      if (message.kind !== 'event' || message.event !== 'tone_watchdog') return;
+      if (!playingRef.current) return;
+      if (stopTimer.current) clearTimeout(stopTimer.current);
+      stopTimer.current = null;
+      playingRef.current = false;
+      setPlaying(false);
+    });
+    return () => sub.remove();
+  }, [onDeviceMessage]);
 
   // Kill the tone the instant the link drops.
   useEffect(() => {

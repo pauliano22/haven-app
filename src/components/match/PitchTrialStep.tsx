@@ -9,6 +9,8 @@ interface Props {
   playingWhich: 'A' | 'B' | null;
   playedA: boolean;
   playedB: boolean;
+  /** Shown once, under the instruction, when tones are quieter than usual for this user. */
+  levelNote?: string;
   onPlay: (which: 'A' | 'B') => void;
   onChoose: (which: 'A' | 'B') => void;
   onAbort: () => void;
@@ -19,6 +21,7 @@ export function PitchTrialStep({
   playingWhich,
   playedA,
   playedB,
+  levelNote,
   onPlay,
   onChoose,
   onAbort,
@@ -81,6 +84,9 @@ export function PitchTrialStep({
           Play both sounds, then choose the one that's closer to what you
           hear.
         </Text>
+        {levelNote && trialIndex === 0 && (
+          <Text style={[styles.note, { color: c.textSecondary }]}>{levelNote}</Text>
+        )}
 
         <View style={styles.optionsRow}>
           {renderOption('A', playedA)}
@@ -114,6 +120,13 @@ const styles = StyleSheet.create({
     fontFamily: SERIF_FONT,
     lineHeight: 22,
     marginBottom: 18,
+  },
+  note: {
+    fontSize: 12,
+    fontFamily: SANS_FONT,
+    lineHeight: 17,
+    marginTop: -8,
+    marginBottom: 14,
   },
   optionsRow: {
     flexDirection: 'row',

@@ -8,5 +8,14 @@
     // a bare .tsx exist. Doesn't affect Metro's own bundling resolution.
     "moduleSuffixes": [".native", ""],
     "types": ["jest", "node"]
-  }
+  },
+  // server/llm-relay/ is a separate, self-contained TypeScript project (its
+  // own tsconfig.json, its own package.json/node_modules) -- a Cloudflare
+  // Worker reference implementation, not part of this app. Without this
+  // exclude, tsc's default file discovery (which has no "include" here to
+  // limit it) picks up its .ts files too, and fails in CI where only this
+  // app's own node_modules gets installed, not that subproject's. Caught by
+  // a real CI failure after adding that directory -- passed locally only
+  // because `server/llm-relay/node_modules` happened to already exist here.
+  "exclude": ["node_modules", "server"]
 }

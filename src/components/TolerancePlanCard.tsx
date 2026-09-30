@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { TOLERANCE_STEP_DB, TOLERANCE_STEP_INTERVAL_MS } from '../constants/tolerance';
+import { TOLERANCE_STEP_DB } from '../constants/tolerance';
 import { RADIUS, RADIUS_SM, SANS_FONT, SERIF_FONT } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import { TolerancePlan } from '../types';
@@ -10,6 +10,12 @@ interface Props {
   plan: TolerancePlan;
   currentAttenDb: number;
   dueForStep: boolean;
+  /** The actual wait before the next step, from useTolerancePlan -- may be
+   * shorter or longer than the base interval depending on recent comfort
+   * responses (see utils/tolerancePacing.ts). Shown here, not the fixed
+   * constant, so the countdown always matches what dueForStep is really
+   * gated on. */
+  intervalMs: number;
   onAdvance: () => void;
   onStop: () => void;
 }
@@ -18,12 +24,12 @@ function formatFreq(hz: number): string {
   return hz >= 1000 ? `${(hz / 1000).toFixed(1)} kHz` : `${hz} Hz`;
 }
 
-function daysUntilDue(plan: TolerancePlan): number {
-  const remaining = TOLERANCE_STEP_INTERVAL_MS - (Date.now() - plan.lastStepAt);
+function daysUntilDue(plan: TolerancePlan, intervalMs: number): number {
+  const remaining = intervalMs - (Date.now() - plan.lastStepAt);
   return Math.max(1, Math.ceil(remaining / (24 * 60 * 60 * 1000)));
 }
 
-export function TolerancePlanCard({ plan, currentAttenDb, dueForStep, onAdvance, onStop }: Props) {
+export function TolerancePlanCard({ plan, currentAttenDb, dueForStep, intervalMs, onAdvance, onStop }: Props) {
   const { theme } = useTheme();
   const c = theme.colors;
   const nextAttenDb = Math.max(0, currentAttenDb - TOLERANCE_STEP_DB);
@@ -66,8 +72,9 @@ export function TolerancePlanCard({ plan, currentAttenDb, dueForStep, onAdvance,
       ) : (
         <>
           <Text style={[styles.body, { color: c.textSecondary }]}>
-            Next step available in {daysUntilDue(plan)} day{daysUntilDue(plan) === 1 ? '' : 's'}.
-            Currently softened by {Math.round(currentAttenDb)} dB.
+            Next step available in {daysUntilDue(plan, intervalMs)} day
+            {daysUntilDue(plan, intervalMs) === 1 ? '' : 's'}. Currently softened by{' '}
+            {Math.round(currentAttenDb)} dB.
           </Text>
           <TouchableOpacity onPress={onStop} accessibilityRole="button" accessibilityLabel="Stop the tolerance-building plan">
             <Text style={[styles.stopLink, { color: c.textSecondary }]}>Stop plan</Text>
