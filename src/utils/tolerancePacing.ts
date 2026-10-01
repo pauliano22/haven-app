@@ -13,11 +13,20 @@
  * capable. This is the honest tool for this data scale: a plain rule over
  * the last couple of responses.
  *
- * The rule: two most recent responses both 'weaker' (too strong -- the
- * person needs more protection than the plan currently assumes) doubles
- * the wait before the next step is offered. Two most recent both 'same' or
- * 'stronger' (comfortable, or wanting even less softening) halves it, down
- * to a floor. Mixed, or fewer than two responses: unchanged. This only ever
+ * Direction semantics come from ComfortCheckIn.tsx and Tune.tsx, and they
+ * are the opposite of what the names suggest at a glance:
+ *   'stronger' = the "Not enough, soften it more" button -- sounds still
+ *                hurt; Tune.tsx nudges attenDb UP (more protection).
+ *   'weaker'   = the "Too strong, soften it less" button -- the person is
+ *                comfortable with less; Tune.tsx nudges attenDb DOWN.
+ * The tolerance plan steps attenDb DOWN over weeks. So:
+ *   two most recent both 'stronger' (still hurting)  -> DOUBLE the wait;
+ *   two most recent both 'same' or 'weaker' (comfortable, or wanting even
+ *   less softening)                                   -> HALVE it, down to
+ *   a floor. Mixed, or fewer than two responses: unchanged.
+ * (Before 2026-10-01 this was inverted -- "too strong" slowed the plan and
+ * "not enough" sped it up -- which de-protected exactly the person who had
+ * just said sounds still hurt. Caught in review of PR #13.) This only ever
  * changes how soon the next step becomes available to tap -- it never
  * advances a step automatically, preserving constants/tolerance.ts's
  * existing invariant (explicit confirmation only, always stoppable).
@@ -44,10 +53,10 @@ export function computeNextIntervalMs(
   if (recentDirections.length < 2) return baseIntervalMs;
 
   const lastTwo = recentDirections.slice(-2);
-  const bothWeaker = lastTwo.every((d) => d === 'weaker');
-  const bothComfortableOrLess = lastTwo.every((d) => d === 'same' || d === 'stronger');
+  const bothStillHurting = lastTwo.every((d) => d === 'stronger');
+  const bothComfortableOrLess = lastTwo.every((d) => d === 'same' || d === 'weaker');
 
-  if (bothWeaker) return Math.min(MAX_INTERVAL_MS, baseIntervalMs * 2);
+  if (bothStillHurting) return Math.min(MAX_INTERVAL_MS, baseIntervalMs * 2);
   if (bothComfortableOrLess) return Math.max(MIN_INTERVAL_MS, Math.floor(baseIntervalMs / 2));
   return baseIntervalMs; // mixed signal -- no confident adjustment either way
 }

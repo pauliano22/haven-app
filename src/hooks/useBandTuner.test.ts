@@ -110,4 +110,22 @@ describe('useBandTuner', () => {
     expect(result.current.active).toBe(false);
     expect(result.current.pair).toBeNull();
   });
+
+  it('keeps attenDb at the chosen depth when the width phase starts (regression: Q written into attenDb)', () => {
+    const { result } = renderHook(() => useBandTuner(BAND_ID));
+    act(() => result.current.start());
+    let guard = 0;
+    while (result.current.phase === 'depth') {
+      act(() => result.current.choose('a'));
+      if (++guard > 20) throw new Error('depth phase did not converge');
+    }
+    expect(result.current.phase).toBe('width');
+    // The first width candidate was just applied live: it must have gone to q,
+    // and attenDb must still be on the depth grid, not a Q value.
+    expect(mockBands[0].attenDb).toBeGreaterThanOrEqual(ATTEN_MIN_DB);
+    expect(mockBands[0].attenDb).toBeLessThanOrEqual(ATTEN_MAX_DB);
+    const lastCall = mockUpdateBand.mock.calls[mockUpdateBand.mock.calls.length - 1][1];
+    expect(lastCall).toHaveProperty('q');
+    expect(lastCall).not.toHaveProperty('attenDb');
+  });
 });

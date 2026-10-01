@@ -67,13 +67,19 @@ export function useBandTuner(bandId: string): BandTunerState {
   const currentSearchState = phase === 'depth' ? depthState : phase === 'width' ? widthState : null;
   const pair = currentSearchState ? search.currentPair(currentSearchState) : null;
 
+  // `forPhase` is explicit rather than read from the `phase` state: when the
+  // depth search converges, advanceToWidthPhase() applies the first WIDTH
+  // candidate in the same render in which setPhase('width') is still
+  // pending, so a closure over `phase` would see 'depth' and write a Q value
+  // (e.g. 6) into attenDb -- the device would end up at 6 dB softening
+  // instead of the depth the person just chose. Caught in review of PR #10.
   const applyCandidate = useCallback(
-    (value: number, which: 'a' | 'b') => {
-      if (phase === 'depth') updateBand(bandId, { attenDb: value });
-      else if (phase === 'width') updateBand(bandId, { q: value });
+    (forPhase: 'depth' | 'width', value: number, which: 'a' | 'b') => {
+      if (forPhase === 'depth') updateBand(bandId, { attenDb: value });
+      else updateBand(bandId, { q: value });
       setActiveChoice(which);
     },
-    [phase, bandId, updateBand],
+    [bandId, updateBand],
   );
 
   const start = useCallback(() => {
@@ -97,10 +103,10 @@ export function useBandTuner(bandId: string): BandTunerState {
 
   const playOption = useCallback(
     (which: 'a' | 'b') => {
-      if (!pair) return;
-      applyCandidate(which === 'a' ? pair.a : pair.b, which);
+      if (!pair || phase === 'done') return;
+      applyCandidate(phase, which === 'a' ? pair.a : pair.b, which);
     },
-    [pair, applyCandidate],
+    [pair, phase, applyCandidate],
   );
 
   const advanceToWidthPhase = useCallback(() => {
@@ -108,7 +114,7 @@ export function useBandTuner(bandId: string): BandTunerState {
     setWidthState(ws);
     setPhase('width');
     const p = search.currentPair(ws);
-    if (p) applyCandidate(p.a, 'a');
+    if (p) applyCandidate('width', p.a, 'a');
   }, [applyCandidate]);
 
   const finish = useCallback(
@@ -133,7 +139,7 @@ export function useBandTuner(bandId: string): BandTunerState {
         } else {
           setDepthState(next);
           const p = search.currentPair(next);
-          if (p) applyCandidate(p.a, 'a');
+          if (p) applyCandidate('depth', p.a, 'a');
         }
       } else if (phase === 'width' && widthState) {
         const next = search.choose(widthState, pick);
@@ -144,7 +150,7 @@ export function useBandTuner(bandId: string): BandTunerState {
         } else {
           setWidthState(next);
           const p = search.currentPair(next);
-          if (p) applyCandidate(p.a, 'a');
+          if (p) applyCandidate('width', p.a, 'a');
         }
       }
     },
