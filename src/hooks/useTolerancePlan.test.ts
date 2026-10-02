@@ -123,11 +123,11 @@ describe('useTolerancePlan', () => {
       expect(result.current.dueForStep).toBe(true);
     });
 
-    it('two "too strong" responses since the last step delay it past the normal wait', async () => {
+    it('two "not enough, soften it more" responses since the last step delay it past the normal wait', async () => {
       await seedPlan();
       const responses = [
-        { timestamp: lastStepAt + 1000, direction: 'weaker' as const },
-        { timestamp: lastStepAt + 2000, direction: 'weaker' as const },
+        { timestamp: lastStepAt + 1000, direction: 'stronger' as const },
+        { timestamp: lastStepAt + 2000, direction: 'stronger' as const },
       ];
 
       const { result } = renderHook(() => useTolerancePlan(responses));
