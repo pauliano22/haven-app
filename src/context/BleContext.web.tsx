@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { getWebBenchBle } from '../services/WebBenchBle';
 import { BenchFreqRange, BleContextValue, DspPayload } from '../types';
+import { isDemoMode } from '../utils/demoMode';
+import { DemoBleProvider } from './DemoBleProvider';
 
 const BleContext = createContext<BleContextValue | null>(null);
 
@@ -12,6 +14,12 @@ const BleContext = createContext<BleContextValue | null>(null);
  * speaks that, is native-only).
  */
 export function BleProvider({ children }: { children: React.ReactNode }) {
+  // Demo mode (?demo=1 or EXPO_PUBLIC_DEMO=1): a simulated device, docs/demo-mode.md.
+  if (isDemoMode()) return <DemoBleProvider context={BleContext}>{children}</DemoBleProvider>;
+  return <BenchBleProvider>{children}</BenchBleProvider>;
+}
+
+function BenchBleProvider({ children }: { children: React.ReactNode }) {
   const client = getWebBenchBle();
   const [status, setStatus] = useState(() => client.getStatus());
   const [benchVolume, setBenchVolumeState] = useState(() => client.getVolume());

@@ -34,6 +34,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
+    "web:demo": "EXPO_PUBLIC_DEMO=1 expo start --web",
+    "export:demo": "EXPO_PUBLIC_DEMO=1 EXPO_PUBLIC_BASE_URL=/haven-website/demo expo export --platform web --output-dir dist-demo",
     "test": "jest"
   },
   "private": true,
