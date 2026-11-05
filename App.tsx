@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { DemoBanner } from './src/components/DemoBanner';
 import { FadeIn } from './src/components/FadeIn';
 import { TabBar } from './src/components/TabBar';
 import { BleProvider } from './src/context/BleContext';
@@ -10,6 +11,8 @@ import { Tab } from './src/navigation';
 import { Hearing } from './src/screens/Hearing';
 import { Home } from './src/screens/Home';
 import { Tune } from './src/screens/Tune';
+import { seedDemoDataOnce } from './src/services/demoSeed';
+import { isDemoMode } from './src/utils/demoMode';
 
 /**
  * On web, the phone layout renders inside a centered 480px column so the
@@ -43,6 +46,7 @@ function Root() {
     <>
       <StatusBar style={theme.dark ? 'light' : 'dark'} />
       <PhoneFrame>
+        <DemoBanner />
         <View style={styles.body}>
           <FadeIn key={tab}>
             {tab === 'home' && <Home onNavigate={setTab} />}
@@ -56,7 +60,24 @@ function Root() {
   );
 }
 
+/**
+ * Demo mode writes its example history before any store is read, so the
+ * providers below load it on mount like real saved data. Outside demo mode
+ * this renders immediately.
+ */
+function useDemoSeed(): boolean {
+  const demo = isDemoMode();
+  const [ready, setReady] = useState(!demo);
+  useEffect(() => {
+    if (!demo) return;
+    void seedDemoDataOnce().then(() => setReady(true));
+  }, [demo]);
+  return ready;
+}
+
 export default function App() {
+  const ready = useDemoSeed();
+  if (!ready) return null;
   return (
     <ThemeProvider>
       <BleProvider>

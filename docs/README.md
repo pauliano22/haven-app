@@ -34,3 +34,4 @@ cold (human or AI), read in this order:
 - **Run the app**: `npm run web` for the browser preview (renders in a centered
   480px phone frame), `npm run android` / `npm run ios` for device builds.
   BLE only works on real devices; the web build uses a no-op BLE stub.
+- [demo-mode.md](demo-mode.md) — running the app in a browser against a simulated device, for demos.
