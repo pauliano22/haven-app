@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CONSENT_VERSION } from '../constants/outcomes';
 import { clearConsent, getConsent, saveConsent } from '../services/ConsentStore';
 import { clearExposureLog, setConsentCache } from '../services/ExposureLog';
+import { clearSoundDiary } from '../services/SoundDiaryStore';
 
 /**
  * Local-logging consent. `accept` turns the exposure log on; `withdraw`
@@ -32,6 +33,7 @@ export function useConsent() {
     setConsentCache(false);
     await clearConsent();
     await clearExposureLog();
+    await clearSoundDiary();
   }, []);
 
   return { consented, loaded, accept, withdraw };
