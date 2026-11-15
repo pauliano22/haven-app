@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ConsentCard } from '../components/ConsentCard';
 import { DataExportCard } from '../components/DataExportCard';
+import { TriggerDiaryCard } from '../components/TriggerDiaryCard';
 import { Nof1Results } from '../components/nof1/Nof1Results';
 import { OutcomeHistory } from '../components/outcomes/OutcomeHistory';
 import { ThiQuestionnaire } from '../components/outcomes/ThiQuestionnaire';
@@ -140,6 +141,8 @@ export function CheckIn({ onBack }: Props) {
           )}
 
           <OutcomeHistory vas={outcomes.vas} thi={outcomes.thi} />
+
+          <TriggerDiaryCard enabled={consented} />
 
           <DataExportCard onWithdraw={() => { withdraw(); onBack?.(); }} />
         </>
