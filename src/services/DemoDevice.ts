@@ -96,6 +96,7 @@ export class DemoDevice {
           fdsp_rate: 192000,
           dac_source: 'fdsp',
         });
+        this.emitStatus();
         this.startBattery();
       }, 1200),
     );
@@ -202,7 +203,22 @@ export class DemoDevice {
     this.batteryTimer = setInterval(() => {
       this.battery = Math.max(20, this.battery - 1);
       this.batteryListeners.forEach((l) => l(this.battery));
+      this.emitStatus();
     }, 60000);
+  }
+
+  /** Pod self-test report, as firmware pod_status.c sends it (healthy pod, off the cradle). */
+  private emitStatus(): void {
+    this.emit({
+      event: 'status',
+      mv: Math.round(3700 + (this.battery / 100) * 500), // rough, display only
+      pct: this.battery,
+      usb: false,
+      chg: false,
+      fault: false,
+      codec: true,
+      problem: 'none',
+    });
   }
 
   private stopBattery(): void {

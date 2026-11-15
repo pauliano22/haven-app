@@ -93,8 +93,29 @@ export interface DeviceBootInfo {
   dacSource: DacSource;
 }
 
+/**
+ * Pod self-test / status (firmware pod_status.h), sent on connect and every 30 s.
+ * null = this board can't tell (the dev kit has no battery sensor or charger pins).
+ */
+export interface DevicePodStatus {
+  /** Battery voltage, mV; 0 = no reading. */
+  mv: number;
+  /** Rough charge left 0-100 from the voltage; null = no reading. */
+  pct: number | null;
+  /** 5 V present on the charge pins (in the cradle). */
+  usb: boolean | null;
+  charging: boolean | null;
+  /** The charger chip reports a fault (battery or temperature). */
+  fault: boolean | null;
+  /** The audio chip answered at boot. */
+  codec: boolean | null;
+  /** Most important thing wrong: 'none' | 'codec' | 'charger_fault' | 'battery_low' | 'no_battery' (or a future code). */
+  problem: string;
+}
+
 export type DeviceEvent =
   | ({ kind: 'event'; event: 'boot' } & DeviceBootInfo)
+  | ({ kind: 'event'; event: 'status' } & DevicePodStatus)
   | { kind: 'event'; event: 'tone_watchdog' };
 
 export type DeviceMessage = DeviceAck | DeviceEvent;

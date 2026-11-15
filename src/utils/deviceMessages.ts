@@ -22,6 +22,29 @@ function finiteNumber(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
 
+/** true / false, or null for null, missing or anything else (the board can't tell). */
+function triState(v: unknown): boolean | null {
+  return typeof v === 'boolean' ? v : null;
+}
+
+/** Plain-language line for a pod status problem code, or null when nothing is wrong. */
+export function podProblemText(problem: string): string | null {
+  switch (problem) {
+    case 'none':
+      return null;
+    case 'codec':
+      return "The pod's sound chip didn't respond when it started. Sound won't work until this is fixed.";
+    case 'charger_fault':
+      return 'The charger reports a fault. Take the pod off the cradle for a few minutes, then try again.';
+    case 'battery_low':
+      return 'Battery is low. Put the pod in the cradle soon.';
+    case 'no_battery':
+      return "The pod can't read its battery.";
+    default:
+      return `The pod reports a problem (${problem}).`;
+  }
+}
+
 function parseAck(obj: Record<string, unknown>): DeviceAck | null {
   const cmd = obj.ack;
   if (typeof cmd !== 'string') return null;
@@ -70,6 +93,23 @@ function parseEvent(obj: Record<string, unknown>): DeviceEvent | null {
         return null;
       }
       return { kind: 'event', event: 'boot', fw: obj.fw, fdspRate, dacSource: obj.dac_source };
+    }
+    case 'status': {
+      const mv = finiteNumber(obj.mv);
+      if (mv === null || typeof obj.problem !== 'string') return null;
+      const pct = obj.pct === null ? null : finiteNumber(obj.pct);
+      if (pct === null && obj.pct !== null) return null;
+      return {
+        kind: 'event',
+        event: 'status',
+        mv,
+        pct,
+        usb: triState(obj.usb),
+        charging: triState(obj.chg),
+        fault: triState(obj.fault),
+        codec: triState(obj.codec),
+        problem: obj.problem,
+      };
     }
     case 'tone_watchdog':
       return { kind: 'event', event: 'tone_watchdog' };
