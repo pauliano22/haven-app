@@ -6,6 +6,7 @@ import { FadeIn } from './src/components/FadeIn';
 import { TabBar } from './src/components/TabBar';
 import { BleProvider } from './src/context/BleContext';
 import { FilterProvider } from './src/context/FilterContext';
+import { PodStatusProvider } from './src/hooks/usePodStatus';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { Tab } from './src/navigation';
 import { Hearing } from './src/screens/Hearing';
@@ -81,9 +82,11 @@ export default function App() {
   return (
     <ThemeProvider>
       <BleProvider>
-        <FilterProvider>
-          <Root />
-        </FilterProvider>
+        <PodStatusProvider>
+          <FilterProvider>
+            <Root />
+          </FilterProvider>
+        </PodStatusProvider>
       </BleProvider>
     </ThemeProvider>
   );

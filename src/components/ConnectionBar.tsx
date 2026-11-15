@@ -11,7 +11,9 @@ import {
 import { useBle } from '../context/BleContext';
 import { useTheme } from '../context/ThemeContext';
 import { ColorPalette, RADIUS, RADIUS_SM, SANS_FONT } from '../constants/theme';
+import { usePodStatus } from '../hooks/usePodStatus';
 import { useReducedMotion } from '../hooks/useReducedMotion';
+import { podProblemText } from '../utils/deviceMessages';
 import { ConnectionStatus } from '../types';
 
 /* Mirrors BLE_IDLE_ADV_TIMEOUT_MS in haven-zephyr-app's ble_transport.c --
@@ -36,11 +38,17 @@ function statusConfig(
   }[status];
 }
 
+function isConnectedStatus(s: ConnectionStatus): boolean {
+  return s === 'connected';
+}
+
 export function ConnectionBar() {
   const { status, queuedCount, connect, disconnect, deviceInfo } = useBle();
   const { theme } = useTheme();
   const c = theme.colors;
   const reduceMotion = useReducedMotion();
+  const pod = usePodStatus();
+  const podProblem = isConnectedStatus(status) && pod ? podProblemText(pod.problem) : null;
 
   const styles = useMemo(() => makeStyles(c), [c]);
   const { label, color } = statusConfig(status, c);
@@ -110,6 +118,15 @@ export function ConnectionBar() {
               {deviceInfo.dacSource !== 'fdsp' ? ` · ${deviceInfo.dacSource}` : ''}
             </Text>
           )}
+          {isConnected && pod && pod.pct !== null && (
+            // Pod self-test report (firmware pod_status.h): rough charge from the voltage.
+            <Text
+              style={styles.queuedLabel}
+              accessibilityLabel={`Battery about ${pod.pct} percent${pod.charging ? ', charging' : ''}`}
+            >
+              {pod.pct}%{pod.charging ? ' · charging' : ''}
+            </Text>
+          )}
           {queuedCount > 0 && !isConnected && (
             <Text style={styles.queuedLabel}>
               {queuedCount} queued
@@ -134,6 +151,12 @@ export function ConnectionBar() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {podProblem && (
+        <Text style={[styles.idleHint, { color: c.statusDisconnected }]} accessibilityRole="alert">
+          {podProblem}
+        </Text>
+      )}
 
       {showIdleHint && !isConnected && (
         <Text style={[styles.idleHint, { color: c.textSecondary }]}>

@@ -2,6 +2,7 @@ import {
   hearingTestsAllowed,
   LineBuffer,
   parseDeviceLine,
+  podProblemText,
 } from './deviceMessages';
 
 // Golden strings copied from haven-zephyr-app src/ack.h — the firmware's
@@ -191,5 +192,54 @@ describe('hearingTestsAllowed — the boot-event safety gate', () => {
   it('refuses any source it does not recognise (allow-list, not deny-list)', () => {
     expect(hearingTestsAllowed(boot('something_new'))).toBe(false);
     expect(hearingTestsAllowed(boot(''))).toBe(false);
+  });
+});
+
+describe('parseDeviceLine — pod status (firmware pod_status.h)', () => {
+  // Exactly what firmware ack_format_event_status writes (tests/host/test_pod_status.c).
+  const pod =
+    '{"event":"status","mv":3850,"pct":57,"usb":false,"chg":false,"fault":false,"codec":true,"problem":"none"}\n';
+  const devkit =
+    '{"event":"status","mv":0,"pct":null,"usb":null,"chg":null,"fault":null,"codec":null,"problem":"none"}\n';
+
+  it('parses a healthy pod report', () => {
+    expect(parseDeviceLine(pod)).toEqual({
+      kind: 'event',
+      event: 'status',
+      mv: 3850,
+      pct: 57,
+      usb: false,
+      charging: false,
+      fault: false,
+      codec: true,
+      problem: 'none',
+    });
+  });
+
+  it('keeps "cannot tell" as null (dev kit has no battery sensor)', () => {
+    const m = parseDeviceLine(devkit);
+    expect(m).toMatchObject({ event: 'status', mv: 0, pct: null, usb: null, charging: null, codec: null });
+  });
+
+  it('rejects a report missing its voltage or problem code', () => {
+    expect(parseDeviceLine('{"event":"status","pct":50,"problem":"none"}')).toBeNull();
+    expect(parseDeviceLine('{"event":"status","mv":3800,"pct":50}')).toBeNull();
+    expect(parseDeviceLine('{"event":"status","mv":3800,"pct":"lots","problem":"none"}')).toBeNull();
+  });
+});
+
+describe('podProblemText', () => {
+  it('says nothing when nothing is wrong', () => {
+    expect(podProblemText('none')).toBeNull();
+  });
+  it('explains each known problem in plain words', () => {
+    for (const code of ['codec', 'charger_fault', 'battery_low', 'no_battery']) {
+      const text = podProblemText(code);
+      expect(text).toBeTruthy();
+      expect(text).not.toContain('_');
+    }
+  });
+  it('still reports a code from newer firmware it does not know', () => {
+    expect(podProblemText('hot_battery')).toContain('hot_battery');
   });
 });
